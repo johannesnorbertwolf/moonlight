@@ -59,7 +59,7 @@ class NightlyWorker(context: Context, params: WorkerParameters) : CoroutineWorke
             val last = NightWindow.lastCompleted(now, prefs.goalStart)
             val previous = NightWindow.forNight(last.nightDate.minusDays(1), prefs.goalStart, now.zone)
             for (w in listOf(previous, last)) {
-                Uploader.upload(prefs.participant, UsageReader.read(context, w))
+                Uploader.upload(prefs, UsageReader.read(context, w))
             }
             val r = UsageReader.read(context, last)
             val minutes = r.preciseSeconds / 60

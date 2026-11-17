@@ -2,7 +2,7 @@
 
 An app for a sleep intervention: it checks whether you used your phone during your night window (your goal time → 07:00), and every morning compares how everyone in your group did. Working name.
 
-**Status:** concept plus measurement test. Read `CONCEPT.md` first.
+**Status:** concept, measurement test, and a clickable web app prototype. Read `CONCEPT.md` first.
 
 | Folder | Contents |
 |---|---|
@@ -12,3 +12,4 @@ An app for a sleep intervention: it checks whether you used your phone during yo
 | `ios-shortcuts/` | iPhone setup guide (Shortcuts automations, no app needed) |
 | `android/` | Kotlin measuring app for Android |
 | `analysis/` | Script that turns raw events into nights |
+| `web/` | Clickable web app prototype with made-up group data |

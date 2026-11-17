@@ -10,32 +10,40 @@ import java.time.Instant
 /** Sends a measured night to Supabase (tables from supabase/migrations/0001_measurement_test.sql). */
 object Uploader {
 
-    fun upload(participant: String, result: NightResult) {
+    /**
+     * Uploads the night summary (upsert) and the events not uploaded before. The phone remembers
+     * the newest uploaded event time in [Prefs.uploadedUntil], because the public key may only
+     * insert events: it can't run "insert, skip duplicates", which needs read access.
+     */
+    fun upload(prefs: Prefs, result: NightResult) {
         require(BuildConfig.SUPABASE_URL.isNotBlank() && BuildConfig.SUPABASE_KEY.isNotBlank()) {
             "Supabase URL or key missing: fill in android/local.properties and rebuild"
         }
+        val participant = prefs.participant
+        val since = prefs.uploadedUntil
 
-        val events = JSONArray()
-        fun event(kind: String, t: Long) = events.put(
-            JSONObject()
-                .put("participant", participant)
-                .put("platform", "android")
-                .put("kind", kind)
-                .put("occurred_at", Instant.ofEpochMilli(t).toString())
-                .put("source", "android_usage_events")
-        )
+        val pending = mutableListOf<Pair<String, Long>>()
         for (s in result.sessions) {
-            event("open", s.start)
-            event("close", s.end)
+            pending += "open" to s.start
+            pending += "close" to s.end
         }
-        for (t in result.screenOffs) event("screen_off", t)
+        for (t in result.screenOffs) pending += "screen_off" to t
+        val fresh = pending.filter { it.second > since }.distinct().sortedBy { it.second }
 
-        if (events.length() > 0) {
-            post(
-                "test_events?on_conflict=participant,platform,kind,occurred_at",
-                events.toString(),
-                "resolution=ignore-duplicates,return=minimal",
-            )
+        if (fresh.isNotEmpty()) {
+            val events = JSONArray()
+            for ((kind, t) in fresh) {
+                events.put(
+                    JSONObject()
+                        .put("participant", participant)
+                        .put("platform", "android")
+                        .put("kind", kind)
+                        .put("occurred_at", Instant.ofEpochMilli(t).toString())
+                        .put("source", "android_usage_events")
+                )
+            }
+            post("test_events", events.toString(), "return=minimal")
+            prefs.uploadedUntil = fresh.last().second
         }
 
         val night = JSONObject()

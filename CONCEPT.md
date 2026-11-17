@@ -179,7 +179,7 @@ moonlight/
   ios-shortcuts/      setup guide for the iPhone automations
   android/            Kotlin measuring app
   analysis/           scripts that turn raw events into nights
-  web/                the web app (later)
+  web/                the web app (prototype with made-up data so far)
   docs/               test plans and notes
 ```
 
@@ -187,7 +187,7 @@ moonlight/
 
 1. **Measurement test (now):** Shortcuts on iPhone, the measuring app on Android, raw events in Supabase, an analysis script. Run for 2–3 real nights and compare with the phones' own Screen Time / Digital Wellbeing numbers. See `docs/measurement-test.md`.
 2. **Backend:** final tables, row level security, participant tokens, server function that computes nights.
-3. **Web app:** onboarding, morning recap, group board, history, reactions. English and Dutch.
+3. **Web app:** onboarding, morning recap, group board, history, reactions. English and Dutch. *A clickable prototype with made-up data exists in `web/`; next is connecting it to Supabase.*
 4. **Morning notification:** web push and Firebase Cloud Messaging, scheduled server function.
 5. **Trial with 4 people** for 2 weeks.
 

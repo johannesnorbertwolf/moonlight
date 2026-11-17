@@ -173,6 +173,8 @@ def summarize(
 ) -> list[NightSummary]:
     by_person: dict[str, list[Event]] = {}
     for e in events:
+        if e.participant.startswith("_"):  # setup checks, not a participant
+            continue
         by_person.setdefault(e.participant, []).append(e)
 
     out: list[NightSummary] = []

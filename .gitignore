@@ -22,3 +22,6 @@ captures/
 
 # Analysis output
 analysis/output/
+
+# Generated, per-participant shortcut files
+ios-shortcuts/out/

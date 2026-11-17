@@ -52,6 +52,11 @@ Also note anything special: phone off, Airplane mode, alarm only, a late call.
 | | | | | | | | |
 | | | | | | | | |
 
+## Findings so far
+
+- **2026-11-17, iPhone setup:** the "App" automation trigger accepts several apps, but each one has to be tapped separately in the list. Selecting all apps is very tedious, so participants select only the apps they actually use (about 10–20). Use of apps not on the list isn't measured. This setup burden counts against the Shortcuts route.
+- **2026-11-17, iPhone:** "open" events arrived right away. "close" events didn't at first, then did after re-checking the close automation's settings. Watch whether close events keep arriving overnight.
+
 ## Decide after the test
 
 - Is the Shortcuts route good enough for iPhone, or do iPhone users fall back to a morning self-report?
