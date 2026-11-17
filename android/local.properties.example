@@ -1,0 +1,4 @@
+# Copy to local.properties (which is gitignored) and fill in.
+# Android Studio adds sdk.dir itself.
+moonlight.supabaseUrl=https://YOUR-PROJECT.supabase.co
+moonlight.supabaseKey=YOUR-PUBLIC-ANON-OR-PUBLISHABLE-KEY

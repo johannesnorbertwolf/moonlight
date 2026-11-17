@@ -1,0 +1,14 @@
+# Moonlight
+
+An app for a sleep intervention: it checks whether you used your phone during your night window (your goal time → 07:00), and every morning compares how everyone in your group did. Working name.
+
+**Status:** concept plus measurement test. Read `CONCEPT.md` first.
+
+| Folder | Contents |
+|---|---|
+| `CONCEPT.md` | The full concept: rules, architecture, screens, data model, build order |
+| `docs/measurement-test.md` | Plan for the 2–3 night measurement test and results log |
+| `supabase/` | Database migrations |
+| `ios-shortcuts/` | iPhone setup guide (Shortcuts automations, no app needed) |
+| `android/` | Kotlin measuring app for Android |
+| `analysis/` | Script that turns raw events into nights |
