@@ -9,8 +9,6 @@
 -- All reads and writes from the web app go through the security-definer functions below, which
 -- check group membership. The tables themselves stay closed to the public key.
 
-create extension if not exists pgcrypto;
-
 create table if not exists public.groups (
   id               uuid primary key default gen_random_uuid(),
   name             text not null,
@@ -49,7 +47,7 @@ alter table public.reactions    enable row level security;
 -- The trial group, with a random 6-character join code. Read it afterwards with:
 --   select name, join_code from public.groups;
 insert into public.groups (name, join_code, challenge_start)
-select 'Moonlight test', upper(substr(encode(gen_random_bytes(6), 'hex'), 1, 6)), current_date
+select 'Moonlight test', upper(substr(md5(random()::text || clock_timestamp()::text), 1, 6)), current_date
 where not exists (select 1 from public.groups);
 
 -- ---------------------------------------------------------------- helpers
