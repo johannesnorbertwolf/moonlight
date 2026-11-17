@@ -1,6 +1,10 @@
-# Moonlight web app (prototype)
+# Moonlight web app
 
-The screens from `CONCEPT.md` §7 as a clickable prototype with **made-up group data**. Nothing is sent anywhere; your name, settings and reactions stay in the browser (localStorage). The demo group code is `MOON`.
+The screens from `CONCEPT.md` §7. Two modes:
+- **Live:** join with the group code (from `select join_code from groups;` in Supabase). The app signs in anonymously, loads the group through the functions in `supabase/migrations/0002_groups_and_reactions.sql`, computes each night from the raw events (`estimate.js`, same rule as `analysis/summarize_nights.py`) and stores reactions in the database. Requires "Allow anonymous sign-ins" in Supabase.
+- **Demo:** "Try the demo instead" on the welcome screen; a made-up group, nothing sent anywhere.
+
+Published to GitHub Pages by `.github/workflows/pages.yml` on every push to `main` that changes `web/`.
 
 Plain HTML, CSS and JavaScript modules: no build step, no dependencies.
 
@@ -18,18 +22,22 @@ Then open http://localhost:8742 on the Mac, or `http://<your Mac's IP>:8742` on 
 |---|---|
 | `index.html` | Page shell, tab bar, links the manifest and icon |
 | `app.js` | Router (`#/today`, `#/recap`, `#/group`, `#/history`, `#/settings`) and all screens, including onboarding and the reaction tray (tap = 🌙, hold = all nine) |
-| `data.js` | Rules from the concept (buckets, night dates, windows, streaks), local storage, and the made-up group |
+| `data.js` | Rules from the concept (buckets, night dates, windows, streaks), local storage, and the made-up demo group |
+| `estimate.js` | Turns open/close events into estimated minutes per night |
+| `remote.js` | Supabase: anonymous sign-in, join, load group, reactions, goal changes |
+| `config.js` | Supabase URL and public (publishable) key |
 | `moon.js` | Moon icons per bucket, as inline SVG |
 | `i18n.js` | English and Dutch strings |
 | `styles.css` | Night theme, mobile-first |
 | `manifest.webmanifest`, `icon.svg` | Home-screen app name and icon |
 
-## What's fake
+## Known limits
 
-- The group (you plus Sam, Jo and Alex) and all nights, generated from a fixed seed so they stay the same across reloads.
-- Other members' reactions.
+- Nights are computed in the browser's time zone, and with the member's *current* goal time for all past nights.
+- Anyone with the group code who types an existing member's name takes over that member (meant for switching phones; fine for a trial among friends).
+- iPhone nights without any events count as phone-free; a silent night can't be told apart from broken automations yet.
 - Settings → "Demo: allow reactions during the night" bypasses the rule that reactions are only possible outside night windows.
 
 ## Next steps
 
-Connect to Supabase (participant tokens, real nights from `usage_events`, reactions table), web push for the morning notification, and hosting over HTTPS so it can be added to iPhone home screens.
+Morning notification (web push), and moving the night computation to the server so the notification can use it.

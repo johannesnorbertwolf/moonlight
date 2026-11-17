@@ -130,7 +130,7 @@ export function buildGroup(profile, now = new Date()) {
       m.nights[isoDate(d)] = { date: isoDate(d), ...fakeNight(rand, m.goal, m.skill) };
     }
   }
-  return { name: "Moonlight demo", start, last, members };
+  return { live: false, name: "Moonlight demo", start, last, nightsTotal: CHALLENGE_NIGHTS, members };
 }
 
 /** Consecutive phone-free nights up to `last`; "missing" pauses without breaking. */

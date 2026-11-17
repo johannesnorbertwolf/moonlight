@@ -1,17 +1,25 @@
 import { t, setLang, getLang, guessLang } from "./i18n.js";
 import {
-  REACTIONS, CHALLENGE_NIGHTS, DEMO_GROUP_CODE, WINDOW_END,
+  REACTIONS, WINDOW_END,
   loadState, saveState, buildGroup, isoDate, addDays, pad,
   inNightWindow, minutesUntilWindow, windowLength, toMinutes,
   personalStreak, groupStreak, bestStreak,
 } from "./data.js";
 import { moonSvg } from "./moon.js";
 
+// Two modes: "live" (Supabase, real group) and "demo" (made-up group, nothing sent anywhere).
+// The Supabase code is loaded only in live mode, so the demo works without it.
 const app = document.getElementById("app");
 const state = loadState();
 state.reactions ??= {};
-state.demo ??= true;
+state.demo ??= false;
 setLang(state.lang || guessLang());
+
+let remote = null;
+async function getRemote() {
+  remote ??= await import("./remote.js");
+  return remote;
+}
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const save = () => saveState(state);
@@ -21,25 +29,27 @@ function toast(msg) {
   el.className = "toast";
   el.textContent = msg;
   document.body.appendChild(el);
-  setTimeout(() => el.remove(), 1800);
+  setTimeout(() => el.remove(), 2200);
 }
 
-function dayLabel(d) {
-  return d.toLocaleDateString(getLang() === "nl" ? "nl-NL" : "en-GB", { weekday: "short" });
-}
+const locale = () => (getLang() === "nl" ? "nl-NL" : "en-GB");
+const dayLabel = (d) => d.toLocaleDateString(locale(), { weekday: "short" });
+const longDate = (d) => d.toLocaleDateString(locale(), { weekday: "long", day: "numeric", month: "long" });
+const nightsText = (n) => (n === 1 ? t("today.night1") : t("today.nights", { n }));
 
-function longDate(d) {
-  return d.toLocaleDateString(getLang() === "nl" ? "nl-NL" : "en-GB", { weekday: "long", day: "numeric", month: "long" });
-}
-
-function nightsText(n) {
-  return n === 1 ? t("today.night1") : t("today.nights", { n });
+function emptyState() {
+  return `
+    <div class="card" style="text-align:center;padding:32px 16px">
+      ${moonSvg("future", 64, { bg: "var(--surface)" })}
+      <h2 style="margin-top:16px">${t("empty.title")}</h2>
+      <p class="muted" style="margin:0">${t("empty.body")}</p>
+    </div>`;
 }
 
 // ---------------------------------------------------------------- onboarding
 
 let onbStep = 0;
-const onbDraft = { name: "", code: "", goal: "21:00", platform: "ios" };
+const onbDraft = { name: "", code: "", goal: "21:00", platform: "ios", demo: false };
 
 function renderOnboarding() {
   document.querySelector("nav.tabs").hidden = true;
@@ -51,9 +61,11 @@ function renderOnboarding() {
         <p class="muted">${t("onb.welcome.body")}</p>
         <div class="seg" style="margin:24px 0 8px">${langButtons()}</div>
         <button class="btn-primary btn-block" id="go">${t("onb.start")}</button>
+        <button class="btn-block link" id="demo" style="margin-top:20px">${t("onb.demo")}</button>
       </div>`;
     bindLangButtons(renderOnboarding);
-    app.querySelector("#go").onclick = () => { onbStep = 1; renderOnboarding(); };
+    app.querySelector("#go").onclick = () => { onbDraft.demo = false; onbStep = 1; renderOnboarding(); };
+    app.querySelector("#demo").onclick = () => { onbDraft.demo = true; onbStep = 1; renderOnboarding(); };
     return;
   }
   if (onbStep === 1) {
@@ -65,10 +77,11 @@ function renderOnboarding() {
         <div class="hint">${t("onb.name.hint")}</div>
         <div class="error" id="e-name"></div>
 
+        ${onbDraft.demo ? "" : `
         <label for="code">${t("onb.code")}</label>
-        <input id="code" autocapitalize="characters" value="${esc(onbDraft.code)}">
+        <input id="code" autocapitalize="characters" autocomplete="off" value="${esc(onbDraft.code)}">
         <div class="hint">${t("onb.code.hint")}</div>
-        <div class="error" id="e-code"></div>
+        <div class="error" id="e-code"></div>`}
 
         <label for="goal">${t("onb.goal")}</label>
         <input id="goal" type="time" value="${onbDraft.goal}">
@@ -79,7 +92,8 @@ function renderOnboarding() {
           <button type="button" data-p="ios" aria-pressed="${onbDraft.platform === "ios"}">iPhone</button>
           <button type="button" data-p="android" aria-pressed="${onbDraft.platform === "android"}">Android</button>
         </div>
-        <button class="btn-primary btn-block" type="submit">${t("onb.continue")}</button>
+        <div class="error" id="e-form"></div>
+        <button class="btn-primary btn-block" type="submit" id="submit">${t("onb.continue")}</button>
       </form>`;
     const f = app.querySelector("#f");
     f.querySelectorAll("[data-p]").forEach((b) => (b.onclick = () => {
@@ -89,16 +103,34 @@ function renderOnboarding() {
     const name = f.querySelector("#name");
     const code = f.querySelector("#code");
     name.oninput = () => (f.querySelector("#e-name").textContent = "");
-    code.oninput = () => (f.querySelector("#e-code").textContent = "");
-    f.onsubmit = (ev) => {
+    if (code) code.oninput = () => (f.querySelector("#e-code").textContent = "");
+    f.onsubmit = async (ev) => {
       ev.preventDefault();
       onbDraft.name = name.value.trim();
-      onbDraft.code = code.value.trim();
+      onbDraft.code = code ? code.value.trim() : "";
       onbDraft.goal = f.querySelector("#goal").value || "21:00";
       let ok = true;
       if (!onbDraft.name) { f.querySelector("#e-name").textContent = t("onb.err.name"); ok = false; }
-      if (onbDraft.code.toUpperCase() !== DEMO_GROUP_CODE) { f.querySelector("#e-code").textContent = t("onb.err.code"); ok = false; }
-      if (ok) { onbStep = 2; renderOnboarding(); }
+      if (code && !onbDraft.code) { f.querySelector("#e-code").textContent = t("onb.err.code"); ok = false; }
+      if (!ok) return;
+      if (!onbDraft.demo) {
+        const btn = f.querySelector("#submit");
+        btn.disabled = true;
+        btn.textContent = t("loading");
+        try {
+          const r = await getRemote();
+          await r.join(onbDraft.code, onbDraft.name, onbDraft.goal, onbDraft.platform);
+        } catch (e) {
+          btn.disabled = false;
+          btn.textContent = t("onb.continue");
+          const isCode = remote && e instanceof remote.UnknownCodeError;
+          f.querySelector(isCode ? "#e-code" : "#e-form").textContent = t(isCode ? "onb.err.code" : "onb.err.network");
+          console.error(e);
+          return;
+        }
+      }
+      onbStep = 2;
+      renderOnboarding();
     };
     return;
   }
@@ -108,8 +140,10 @@ function renderOnboarding() {
     <p class="muted" style="margin:0">${t("onb.setup.home")}</p></div>
     <button class="btn-primary btn-block" id="done">${t("onb.done")}</button>`;
   app.querySelector("#done").onclick = () => {
+    state.mode = onbDraft.demo ? "demo" : "live";
     state.profile = { name: onbDraft.name, goal: onbDraft.goal, platform: onbDraft.platform };
     save();
+    onbStep = 0;
     location.hash = "#/today";
     render();
   };
@@ -135,18 +169,17 @@ function renderToday(group) {
   const me = group.members.find((m) => m.me);
   const now = new Date();
   const h = now.getHours();
-  const greet = h >= 5 && h < 12 ? "today.greeting.morning" : h < 18 && h >= 12 ? "today.greeting.day" : "today.greeting.evening";
+  const greet = h >= 5 && h < 12 ? "today.greeting.morning" : h >= 12 && h < 18 ? "today.greeting.day" : "today.greeting.evening";
   const active = inNightWindow(me.goal, now);
   const until = minutesUntilWindow(me.goal, now);
-  const lastKey = isoDate(group.last);
-  const night = me.nights[lastKey];
-  const nightNo = Math.round((group.last - group.start) / 864e5) + 1;
   const tips = t("tips");
   const tip = tips[Math.floor(now / 864e5) % tips.length];
+  const night = group.last && me.nights[isoDate(group.last)];
+  const nightNo = group.last ? Math.round((group.last - group.start) / 864e5) + 1 : 0;
 
   app.innerHTML = `
     <h1>${t(greet, { name: esc(me.name) })}</h1>
-    <p class="muted">${longDate(now)} · ${t("today.challenge", { n: nightNo, total: CHALLENGE_NIGHTS })}</p>
+    <p class="muted">${longDate(now)}${nightNo ? ` · ${t("today.challenge", { n: nightNo, total: group.nightsTotal })}` : ""}</p>
 
     <div class="card">
       ${active
@@ -155,6 +188,7 @@ function renderToday(group) {
            <p class="muted" style="margin:0">${t("today.window.in", { h: Math.floor(until / 60), m: until % 60 })}</p>`}
     </div>
 
+    ${night ? `
     <a class="card row" href="#/recap" style="color:inherit;text-decoration:none;display:flex">
       ${moonSvg(night.bucket, 44, { bg: "var(--surface)", label: t("bucket." + night.bucket) })}
       <div class="grow">
@@ -167,7 +201,7 @@ function renderToday(group) {
     <div class="stats">
       <div class="card stat" style="margin:0"><div class="muted small">${t("today.streak")}</div><div class="num">${nightsText(personalStreak(me, group.last))}</div></div>
       <div class="card stat" style="margin:0"><div class="muted small">${t("today.groupStreak")}</div><div class="num">${nightsText(groupStreak(group))}</div></div>
-    </div>
+    </div>` : emptyState()}
 
     <div class="card">
       <div class="muted small">${t("today.tip")}</div>
@@ -197,13 +231,13 @@ function clock(goal, offsetMin) {
 }
 
 function renderRecap(group) {
+  if (!group.last) { app.innerHTML = `<h1>${t("recap.title")}</h1>${emptyState()}`; return; }
   const me = group.members.find((m) => m.me);
   const night = me.nights[isoDate(group.last)];
   const len = windowLength(me.goal);
   const used = night.min ?? 0;
   const share = Math.max(0, 1 - used / len);
 
-  // When the 2-minute margin was crossed, from the session list.
   let crossed = null;
   let total = 0;
   for (const s of night.sessions) {
@@ -217,7 +251,6 @@ function renderRecap(group) {
   else if (night.bucket === "free") msg = t("recap.freeSmall", { min: used });
   else msg = t("recap.used", { min: Math.round(used), time: crossed });
 
-  const midLabel = clock(me.goal, len / 2);
   app.innerHTML = `
     <p class="muted" style="margin:0">${longDate(group.last)}</p>
     <h1>${t("recap.title")}</h1>
@@ -226,18 +259,14 @@ function renderRecap(group) {
     <div class="timeline" aria-hidden="true">
       ${night.sessions.map((s) => `<span style="left:${(s.offset / len) * 100}%;width:${Math.max(0.6, (s.min / len) * 100)}%"></span>`).join("")}
     </div>
-    <div class="timeline-labels"><span>${me.goal}</span><span>${midLabel}</span><span>${WINDOW_END}</span></div>
+    <div class="timeline-labels"><span>${me.goal}</span><span>${clock(me.goal, len / 2)}</span><span>${WINDOW_END}</span></div>
     <div class="card">${msg}</div>
     <a class="btn btn-primary btn-block" href="#/group">${t("recap.toGroup")}</a>`;
 }
 
 // ---------------------------------------------------------------- group
 
-function reactionKey(memberId, date) {
-  return `${memberId}|${date}`;
-}
-
-/** Made-up reactions from the other members, stable per night. */
+/** Made-up reactions from the other demo members, stable per night. */
 function fakeReactions(group, member, date) {
   const others = group.members.filter((m) => !m.me && m.id !== member.id);
   const night = member.nights[date];
@@ -248,15 +277,27 @@ function fakeReactions(group, member, date) {
     .map((o) => pool[(o.id.length + date.charCodeAt(8)) % pool.length]);
 }
 
+/** {counts: Map(emoji → n), mine: emoji|undefined} for one member's night. */
 function reactionsFor(group, member, date) {
   const counts = new Map();
-  for (const e of fakeReactions(group, member, date)) counts.set(e, (counts.get(e) || 0) + 1);
-  const mine = member.me ? null : state.reactions[reactionKey(member.id, date)];
-  if (mine) counts.set(mine, (counts.get(mine) || 0) + 1);
+  const add = (e) => counts.set(e, (counts.get(e) || 0) + 1);
+  let mine;
+  if (group.live) {
+    for (const r of group.reactions) {
+      if (r.target !== member.id || r.night !== date) continue;
+      add(r.emoji);
+      if (r.from === group.meId) mine = r.emoji;
+    }
+  } else {
+    fakeReactions(group, member, date).forEach(add);
+    mine = member.me ? undefined : state.reactions[`${member.id}|${date}`];
+    if (mine) add(mine);
+  }
   return { counts, mine };
 }
 
 function renderGroup(group) {
+  if (!group.last) { app.innerHTML = `<h1>${esc(group.name)}</h1>${emptyState()}`; return; }
   const date = isoDate(group.last);
   const me = group.members.find((m) => m.me);
   const ok = group.members.filter((m) => m.nights[date].bucket === "free").length;
@@ -274,7 +315,7 @@ function renderGroup(group) {
       const chips = [...counts].map(([e, c]) => `<span class="chip${e === mine ? " mine" : ""}">${e}${c > 1 ? " " + c : ""}</span>`).join("");
       return `
         <div class="member">
-          <div class="avatar">${esc(m.name[0] || "?").toUpperCase()}</div>
+          <div class="avatar">${esc((m.name[0] || "?").toUpperCase())}</div>
           <div class="grow">
             <div style="font-weight:600">${esc(m.name)}${m.me ? ` <span class="muted small">(${t("group.you")})</span>` : ""}</div>
             <div class="muted small">${t("bucket." + n.bucket)} · ${t("group.goal", { time: m.goal })}</div>
@@ -303,15 +344,36 @@ function renderGroup(group) {
   if (canReact) bindReactions(group, date);
 }
 
+async function react(group, memberId, date, emoji) {
+  const member = group.members.find((m) => m.id === memberId);
+  const current = reactionsFor(group, member, date).mine;
+  const next = current === emoji ? null : emoji;
+  if (group.live) {
+    try {
+      await (await getRemote()).setReaction(memberId, date, next);
+    } catch (e) {
+      console.error(e);
+      toast(t("react.failed"));
+    }
+    render();
+  } else {
+    const key = `${memberId}|${date}`;
+    if (next) state.reactions[key] = next;
+    else delete state.reactions[key];
+    save();
+    renderGroup(group);
+  }
+}
+
 function bindReactions(group, date) {
   app.querySelectorAll(".moon-btn").forEach((btn) => {
     let timer = null;
     let longPressed = false;
-    const key = reactionKey(btn.dataset.member, date);
+    const id = btn.dataset.member;
 
     btn.addEventListener("pointerdown", () => {
       longPressed = false;
-      timer = setTimeout(() => { longPressed = true; openTray(btn, key, group); }, 450);
+      timer = setTimeout(() => { longPressed = true; openTray(btn, group, id, date); }, 450);
     });
     const cancel = () => clearTimeout(timer);
     btn.addEventListener("pointerup", cancel);
@@ -320,22 +382,19 @@ function bindReactions(group, date) {
     btn.addEventListener("click", (ev) => {
       // The click that ends a long press must not reach the document, which closes the tray.
       if (longPressed) { ev.stopPropagation(); return; }
-      // Quick tap: toggle the default 🌙 reaction.
-      if (state.reactions[key] === "🌙") delete state.reactions[key];
-      else state.reactions[key] = "🌙";
-      save();
-      renderGroup(group);
+      react(group, id, date, "🌙");
     });
   });
 }
 
-function openTray(anchor, key, group) {
+function openTray(anchor, group, memberId, date) {
   closeTray();
+  const mine = reactionsFor(group, group.members.find((m) => m.id === memberId), date).mine;
   const tray = document.createElement("div");
   tray.className = "tray";
   tray.setAttribute("role", "menu");
   tray.innerHTML = REACTIONS.map((e) =>
-    `<button role="menuitem" data-e="${e}" aria-pressed="${state.reactions[key] === e}">${e}</button>`).join("");
+    `<button role="menuitem" data-e="${e}" aria-pressed="${mine === e}">${e}</button>`).join("");
   document.body.appendChild(tray);
 
   const r = anchor.getBoundingClientRect();
@@ -346,11 +405,8 @@ function openTray(anchor, key, group) {
 
   tray.querySelectorAll("button").forEach((b) => (b.onclick = (ev) => {
     ev.stopPropagation();
-    if (state.reactions[key] === b.dataset.e) delete state.reactions[key];
-    else state.reactions[key] = b.dataset.e;
-    save();
     closeTray();
-    renderGroup(group);
+    react(group, memberId, date, b.dataset.e);
   }));
   setTimeout(() => document.addEventListener("click", closeTray, { once: true }), 0);
 }
@@ -363,7 +419,7 @@ function closeTray() {
 
 function renderHistory(group) {
   const me = group.members.find((m) => m.me);
-  const nights = [...Array(CHALLENGE_NIGHTS)].map((_, i) => addDays(group.start, i));
+  const nights = [...Array(group.nightsTotal)].map((_, i) => addDays(group.start, i));
   const done = Object.values(me.nights);
   const free = done.filter((n) => n.bucket === "free").length;
 
@@ -393,16 +449,18 @@ function renderHistory(group) {
 
 // ---------------------------------------------------------------- settings
 
-function renderSettings() {
-  const p = state.profile;
+function renderSettings(group) {
+  const live = state.mode === "live";
+  const me = group.members.find((m) => m.me);
   app.innerHTML = `
     <h1>${t("settings.title")}</h1>
     <form id="f" novalidate>
       <label for="name">${t("settings.name")}</label>
-      <input id="name" value="${esc(p.name)}" maxlength="40">
+      <input id="name" value="${esc(me.name)}" maxlength="40" ${live ? "disabled" : ""}>
+      ${live ? `<div class="hint">${t("settings.name.locked")}</div>` : ""}
       <div class="error" id="e-name"></div>
       <label for="goal">${t("settings.goal")}</label>
-      <input id="goal" type="time" value="${p.goal}">
+      <input id="goal" type="time" value="${me.goal}">
       <div class="hint">${t("settings.goal.note")}</div>
       <label>${t("settings.language")}</label>
       <div class="seg">${langButtons()}</div>
@@ -410,23 +468,39 @@ function renderSettings() {
       <button class="btn-primary btn-block" type="submit">${t("settings.save")}</button>
     </form>
     <button class="btn-block" id="reset">${t("settings.reset")}</button>
-    <p class="muted small" style="margin-top:16px">${t("settings.prototype")}</p>`;
-  bindLangButtons(() => { render(); });
+    <p class="muted small" style="margin-top:16px">${live ? t("settings.live", { group: esc(group.name) }) : t("settings.prototype")}</p>`;
+  bindLangButtons(() => render());
   const f = app.querySelector("#f");
   f.querySelector("#name").oninput = () => (f.querySelector("#e-name").textContent = "");
-  f.onsubmit = (ev) => {
+  f.onsubmit = async (ev) => {
     ev.preventDefault();
-    const name = f.querySelector("#name").value.trim();
-    if (!name) { f.querySelector("#e-name").textContent = t("onb.err.name"); return; }
-    p.name = name;
-    p.goal = f.querySelector("#goal").value || p.goal;
+    const goal = f.querySelector("#goal").value || me.goal;
     state.demo = f.querySelector("#demo").checked;
+    if (live) {
+      try {
+        if (goal !== me.goal) await (await getRemote()).updateGoal(goal);
+      } catch (e) {
+        console.error(e);
+        toast(t("onb.err.network"));
+        return;
+      }
+      state.profile.goal = goal;
+    } else {
+      const name = f.querySelector("#name").value.trim();
+      if (!name) { f.querySelector("#e-name").textContent = t("onb.err.name"); return; }
+      state.profile.name = name;
+      state.profile.goal = goal;
+    }
     save();
     toast(t("settings.saved"));
     render();
   };
-  app.querySelector("#reset").onclick = () => {
+  app.querySelector("#reset").onclick = async () => {
+    if (live) {
+      try { await (await getRemote()).signOut(); } catch (e) { console.error(e); }
+    }
     delete state.profile;
+    delete state.mode;
     state.reactions = {};
     save();
     onbStep = 0;
@@ -438,10 +512,18 @@ function renderSettings() {
 
 const ROUTES = { today: renderToday, recap: renderRecap, group: renderGroup, history: renderHistory, settings: renderSettings };
 const TAB_FOR = { today: "today", recap: "today", group: "group", history: "history", settings: "settings" };
+let renderSeq = 0;
 
-function render() {
+async function loadCurrentGroup() {
+  if (state.mode === "demo") return buildGroup(state.profile);
+  return (await getRemote()).loadGroup();
+}
+
+async function render() {
   closeTray();
-  if (!state.profile) return renderOnboarding();
+  if (!state.mode || !state.profile) return renderOnboarding();
+  const seq = ++renderSeq;
+
   const nav = document.querySelector("nav.tabs");
   nav.hidden = false;
   const route = (location.hash.replace(/^#\//, "") || "today").split("?")[0];
@@ -451,9 +533,28 @@ function render() {
     if (a.dataset.tab === TAB_FOR[name]) a.setAttribute("aria-current", "page");
     else a.removeAttribute("aria-current");
   });
-  ROUTES[name](buildGroup(state.profile));
-  window.scrollTo(0, 0);
+
+  if (!app.children.length) app.innerHTML = `<p class="muted">${t("loading")}</p>`;
+  let group;
+  try {
+    group = await loadCurrentGroup();
+  } catch (e) {
+    console.error(e);
+    if (seq !== renderSeq) return;
+    app.innerHTML = `<div class="card"><p>${t("error.load")}</p><button class="btn-primary" id="retry">${t("retry")}</button></div>`;
+    app.querySelector("#retry").onclick = () => render();
+    return;
+  }
+  if (seq !== renderSeq) return; // a newer render started meanwhile
+  if (!group) {
+    // Joined before, but this browser's session is gone: join again (same name keeps history).
+    delete state.mode;
+    save();
+    return renderOnboarding();
+  }
+  ROUTES[name](group);
 }
 
-window.addEventListener("hashchange", render);
+window.addEventListener("hashchange", () => { window.scrollTo(0, 0); render(); });
+document.addEventListener("visibilitychange", () => { if (!document.hidden && state.mode === "live") render(); });
 render();
