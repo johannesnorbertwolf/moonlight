@@ -4,8 +4,7 @@ Two parts: a small **measuring app** that notices phone use at night, and the **
 
 You need from the organizer:
 - the file **Moonlight test.apk** (sent by message, email or a cloud link),
-- **your participant name**, exactly as agreed (for example `Sam`),
-- **the group code**.
+- **your participant name**, exactly as agreed (for example `Sam`).
 
 ## Part 1: the measuring app
 
@@ -26,7 +25,6 @@ From now on the app works by itself: every morning around 07:05 it uploads last 
 1. Open **https://johannesnorbertwolf.github.io/moonlight/** in Chrome.
 2. Tap **Get started** and enter:
    - the **same name** as in the measuring app (otherwise your nights can't be found),
-   - the group code,
    - the same goal time,
    - phone: **Android**.
 3. Chrome menu **⋮ → Add to Home screen** (or **Install app**). Moonlight now opens like an app.

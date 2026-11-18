@@ -18,10 +18,11 @@ async function ensureSession() {
 
 export class UnknownCodeError extends Error {}
 
-export async function join(code, name, goal, platform) {
+// While there is only one group, joining needs no code (migration 0003).
+export async function join(name, goal, platform) {
   await ensureSession();
   const { error } = await supabase.rpc("join_group", {
-    p_code: code, p_name: name, p_goal: goal, p_platform: platform,
+    p_code: null, p_name: name, p_goal: goal, p_platform: platform,
   });
   if (error) {
     if (/unknown group code/.test(error.message)) throw new UnknownCodeError(error.message);

@@ -49,7 +49,7 @@ function emptyState() {
 // ---------------------------------------------------------------- onboarding
 
 let onbStep = 0;
-const onbDraft = { name: "", code: "", goal: "21:00", platform: "ios", demo: false };
+const onbDraft = { name: state.profile?.name || "", goal: state.profile?.goal || "21:00", platform: state.profile?.platform || "ios", demo: false };
 
 function renderOnboarding() {
   document.querySelector("nav.tabs").hidden = true;
@@ -77,12 +77,6 @@ function renderOnboarding() {
         <div class="hint">${t("onb.name.hint")}</div>
         <div class="error" id="e-name"></div>
 
-        ${onbDraft.demo ? "" : `
-        <label for="code">${t("onb.code")}</label>
-        <input id="code" autocapitalize="characters" autocomplete="off" value="${esc(onbDraft.code)}">
-        <div class="hint">${t("onb.code.hint")}</div>
-        <div class="error" id="e-code"></div>`}
-
         <label for="goal">${t("onb.goal")}</label>
         <input id="goal" type="time" value="${onbDraft.goal}">
         <div class="hint">${t("onb.goal.hint")}</div>
@@ -101,17 +95,13 @@ function renderOnboarding() {
       f.querySelectorAll("[data-p]").forEach((x) => x.setAttribute("aria-pressed", x === b));
     }));
     const name = f.querySelector("#name");
-    const code = f.querySelector("#code");
     name.oninput = () => (f.querySelector("#e-name").textContent = "");
-    if (code) code.oninput = () => (f.querySelector("#e-code").textContent = "");
     f.onsubmit = async (ev) => {
       ev.preventDefault();
       onbDraft.name = name.value.trim();
-      onbDraft.code = code ? code.value.trim() : "";
       onbDraft.goal = f.querySelector("#goal").value || "21:00";
       let ok = true;
       if (!onbDraft.name) { f.querySelector("#e-name").textContent = t("onb.err.name"); ok = false; }
-      if (code && !onbDraft.code) { f.querySelector("#e-code").textContent = t("onb.err.code"); ok = false; }
       if (!ok) return;
       if (!onbDraft.demo) {
         const btn = f.querySelector("#submit");
@@ -119,12 +109,11 @@ function renderOnboarding() {
         btn.textContent = t("loading");
         try {
           const r = await getRemote();
-          await r.join(onbDraft.code, onbDraft.name, onbDraft.goal, onbDraft.platform);
+          await r.join(onbDraft.name, onbDraft.goal, onbDraft.platform);
         } catch (e) {
           btn.disabled = false;
           btn.textContent = t("onb.continue");
-          const isCode = remote && e instanceof remote.UnknownCodeError;
-          f.querySelector(isCode ? "#e-code" : "#e-form").textContent = t(isCode ? "onb.err.code" : "onb.err.network");
+          f.querySelector("#e-form").textContent = t("onb.err.network");
           console.error(e);
           return;
         }
@@ -516,7 +505,16 @@ let renderSeq = 0;
 
 async function loadCurrentGroup() {
   if (state.mode === "demo") return buildGroup(state.profile);
-  return (await getRemote()).loadGroup();
+  const r = await getRemote();
+  let group = await r.loadGroup();
+  if (!group && state.profile?.name) {
+    // This browser joined before but its sign-in is gone (cleared storage, expired session):
+    // join again silently with the saved name, which takes over the same participant.
+    const p = state.profile;
+    await r.join(p.name, p.goal, p.platform);
+    group = await r.loadGroup();
+  }
+  return group;
 }
 
 async function render() {
@@ -547,7 +545,7 @@ async function render() {
   }
   if (seq !== renderSeq) return; // a newer render started meanwhile
   if (!group) {
-    // Joined before, but this browser's session is gone: join again (same name keeps history).
+    // Rejoining didn't work: ask again (same name keeps history).
     delete state.mode;
     save();
     return renderOnboarding();

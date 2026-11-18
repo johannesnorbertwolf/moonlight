@@ -1,7 +1,7 @@
 # Moonlight web app
 
 The screens from `CONCEPT.md` §7. Two modes:
-- **Live:** join with the group code (from `select join_code from groups;` in Supabase). The app signs in anonymously, loads the group through the functions in `supabase/migrations/0002_groups_and_reactions.sql`, computes each night from the raw events (`estimate.js`, same rule as `analysis/summarize_nights.py`) and stores reactions in the database. Requires "Allow anonymous sign-ins" in Supabase.
+- **Live:** join with just a name: while there is one group, no code is needed (`supabase/migrations/0003_join_without_code.sql`). The app signs in anonymously, loads the group through the functions in `supabase/migrations/0002_groups_and_reactions.sql`, computes each night from the raw events (`estimate.js`, same rule as `analysis/summarize_nights.py`) and stores reactions in the database. Requires "Allow anonymous sign-ins" in Supabase.
 - **Demo:** "Try the demo instead" on the welcome screen; a made-up group, nothing sent anywhere.
 
 Published to GitHub Pages by `.github/workflows/pages.yml` on every push to `main` that changes `web/`.
@@ -34,7 +34,8 @@ Then open http://localhost:8742 on the Mac, or `http://<your Mac's IP>:8742` on 
 ## Known limits
 
 - Nights are computed in the browser's time zone, and with the member's *current* goal time for all past nights.
-- Anyone with the group code who types an existing member's name takes over that member (meant for switching phones; fine for a trial among friends).
+- Anyone with the link who types an existing member's name takes over that member (meant for switching phones; fine for a trial among friends).
+- The browser remembers the name: if its sign-in is lost, it joins again silently. On iPhone, the home-screen app and Safari have separate storage, so you join once in each.
 - iPhone nights without any events count as phone-free; a silent night can't be told apart from broken automations yet.
 - Settings → "Demo: allow reactions during the night" bypasses the rule that reactions are only possible outside night windows.
 

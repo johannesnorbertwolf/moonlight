@@ -20,7 +20,7 @@ The app measures whether you used your phone during your night window. Every mor
 - **Group size:** at least 2, no upper limit. The first trial runs with **4 people** (2 iPhones, 2 Android phones).
 - **One group for now.** The data model supports several groups, but the app assumes everyone is in one.
 - **Language:** English and Dutch.
-- **No accounts.** You type your name and the group code once (see §8).
+- **No accounts.** You type your name once (see §8). During the trial there is one group and no group code.
 - **No paid Apple developer account.** This rules out a native iPhone app that uses Screen Time or push notifications (see §4), and it shapes the whole architecture.
 
 ### Architecture
@@ -120,7 +120,7 @@ Written by the app, identical for every group, so the evaluation stays fair. Exa
 
 ## 7. Screens (web app)
 
-1. **Onboarding:** name and group code, explanation, goal time, notifications. Then platform setup: on iPhone, a guided walkthrough for the two Shortcuts automations and "Add to Home Screen"; on Android, usage access and battery exemption.
+1. **Onboarding:** name (plus a group code once there are several groups), explanation, goal time, notifications. Then platform setup: on iPhone, a guided walkthrough for the two Shortcuts automations and "Add to Home Screen"; on Android, usage access and battery exemption.
 2. **Home, evening:** tonight's window ("starts at 21:00"), wind-down tip, current streak.
 3. **Morning recap:** your night (ring showing the phone-free share, timeline with the time the night broke), then a link to the group board.
 4. **Group board:** see §6.
@@ -143,7 +143,7 @@ Visual style: a dark night-sky purple background, warm moon yellow for success, 
 | `group_summaries` | `group_id`, `night_date`, `sent_at` | Prevents sending a second notification |
 
 ### Identity without accounts
-- No passwords. You type your **name** and the **group code** once.
+- No passwords. You type your **name** once. While there is only one group there is no group code (migration 0003); with several groups the code comes back.
 - iPhone: the Shortcut sends a personal token (shown during onboarding) with each event. The web app remembers you in the browser.
 - Android: the app stores the token.
 - Downside: switching phones or clearing the browser means re-entering the token. For the trial, the admin can look it up.
