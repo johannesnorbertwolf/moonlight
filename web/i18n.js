@@ -46,6 +46,8 @@ const STRINGS = {
     "recap.freeSmall": "Only a quick check ({min} min). Still a full moon.",
     "recap.used": "{min} min on your phone. The night broke at {time}.",
     "recap.toGroup": "See how the group did",
+    "recap.atLeast": "At least {min} min on your phone. The night broke at {time}.",
+    "recap.atLeastNoTime": "At least {min} min on your phone.",
 
     "group.title": "{ok} of {n} phone-free",
     "group.lastNight": "Last night",
@@ -145,6 +147,8 @@ const STRINGS = {
     "recap.freeSmall": "Alleen even gekeken ({min} min). Nog steeds volle maan.",
     "recap.used": "{min} min op je telefoon. Om {time} was de nacht gebroken.",
     "recap.toGroup": "Bekijk hoe de groep het deed",
+    "recap.atLeast": "Minstens {min} min op je telefoon. Om {time} was de nacht gebroken.",
+    "recap.atLeastNoTime": "Minstens {min} min op je telefoon.",
 
     "group.title": "{ok} van de {n} telefoonvrij",
     "group.lastNight": "Afgelopen nacht",

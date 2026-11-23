@@ -1,7 +1,7 @@
 // Live data from Supabase: anonymous sign-in, joining the group, loading the board, reactions.
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm";
 import { SUPABASE_URL, SUPABASE_KEY } from "./config.js";
-import { isoDate, addDays, lastNightDate } from "./data.js";
+import { isoDate, addDays, lastNightDate, bucketFor } from "./data.js";
 import { useIntervals, summarizeNight } from "./estimate.js";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
@@ -68,6 +68,9 @@ export async function loadGroup(now = new Date()) {
     eventsBy.get(participant).push({ kind, at: new Date(at) });
   }
   const androidNights = new Set(data.android_nights.map((n) => `${n.participant}|${n.night}`));
+  // Nights from the Moonlight iPhone app (Screen Time): only "at least N minutes" (migration 0004).
+  const screenTime = new Map((data.screen_time_nights || []).map((n) => [`${n.participant}|${n.night}`, n]));
+  const usesApp = new Set((data.screen_time_nights || []).map((n) => n.participant));
 
   const members = data.members.map((p) => {
     const evs = eventsBy.get(p.name) || [];
@@ -76,8 +79,15 @@ export async function loadGroup(now = new Date()) {
     if (last) {
       for (let day = new Date(start); day <= last; day = addDays(day, 1)) {
         const key = isoDate(day);
-        // Android reports each night explicitly; no report means "missing". iPhone can't tell.
-        if (p.platform === "android" && !androidNights.has(`${p.name}|${key}`)) {
+        // Android and the iPhone app report each night explicitly; no report means "missing".
+        // iPhones with Shortcuts can't tell.
+        if (usesApp.has(p.name)) {
+          const s = screenTime.get(`${p.name}|${key}`);
+          nights[key] = s
+            ? { date: key, bucket: bucketFor(s.minutes), min: s.minutes, atLeast: true, sessions: [],
+                crossedAt: s.crossed_at ? new Date(s.crossed_at) : null }
+            : { date: key, bucket: "missing", min: null, sessions: [] };
+        } else if (p.platform === "android" && !androidNights.has(`${p.name}|${key}`)) {
           nights[key] = { date: key, bucket: "missing", min: null, sessions: [] };
         } else {
           nights[key] = { date: key, ...summarizeNight(intervals, day, p.goal) };

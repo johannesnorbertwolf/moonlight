@@ -238,6 +238,11 @@ function renderRecap(group) {
   if (night.bucket === "missing") msg = t("bucket.missing");
   else if (used === 0) msg = t("recap.free");
   else if (night.bucket === "free") msg = t("recap.freeSmall", { min: used });
+  else if (night.atLeast) {
+    // iPhone app (Screen Time): only the threshold passed and when 2 minutes were reached.
+    const at = night.crossedAt ? `${pad(night.crossedAt.getHours())}:${pad(night.crossedAt.getMinutes())}` : null;
+    msg = at ? t("recap.atLeast", { min: used, time: at }) : t("recap.atLeastNoTime", { min: used });
+  }
   else msg = t("recap.used", { min: Math.round(used), time: crossed });
 
   app.innerHTML = `

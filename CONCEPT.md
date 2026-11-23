@@ -21,18 +21,18 @@ The app measures whether you used your phone during your night window. Every mor
 - **One group for now.** The data model supports several groups, but the app assumes everyone is in one.
 - **Language:** English and Dutch.
 - **No accounts.** You type your name once (see §8). During the trial there is one group and no group code.
-- **No paid Apple developer account.** This rules out a native iPhone app that uses Screen Time or push notifications (see §4), and it shapes the whole architecture.
+- **Apple developer account (paid, since 2026-11-23).** This made a native iPhone app with Screen Time possible (see §4). Before that, iPhones measured with Shortcuts automations; that route still works for anyone without the app.
 
 ### Architecture
 
 | Part | iPhone | Android |
 |---|---|---|
-| Measuring | Two **Shortcuts automations** ("app opened" / "app closed") send each event to the server | Small **native Kotlin app** reads the phone's usage data and uploads the same kind of events |
-| Screens (board, history, reactions) | **Web app** added to the home screen | The same web app, shown inside the Android app |
-| Morning notification | Web push (home-screen web apps support it since iOS 16.4) | Firebase Cloud Messaging (Google's free push service) through the Android app |
+| Measuring | **Native SwiftUI app** with Apple's Screen Time API: reports "at least 2 / 5 / 15 / 60 minutes" per night (older route: two Shortcuts automations) | Small **native Kotlin app** reads the phone's usage data and uploads open/close events |
+| Screens (board, history, reactions) | **In the iPhone app** (same screens as the web app) | The **web app**, added to the home screen |
+| Morning notification | Local reminder at 09:00 for now; push via APNs later | Firebase Cloud Messaging (Google's free push service) through the Android app |
 | Backend | **Supabase** (Postgres database plus server functions) | same |
 
-The screens are built once as a web app, so both platforms look identical.
+The iPhone app and the web app show the same screens with the same rules (the Swift code ports `web/estimate.js` and `web/data.js`).
 
 ## 3. Core rules
 
@@ -66,10 +66,13 @@ Both platforms send **app opened** and **app closed** events. The server combine
 
 ## 4. Measurement per platform
 
-### Why not Screen Time on iPhone
-Apple's Screen Time API (Family Controls) and push notifications both require a **paid** Apple Developer account; free accounts can't enable them (Apple confirmed this on its developer forums, October 2025). Free installs also expire after 7 days. So the iPhone side uses no native app at all.
+### iPhone: native app with Screen Time
+- Apple's Screen Time API (Family Controls + DeviceActivity) needs a **paid** Apple Developer account, and for TestFlight/App Store also Apple's **Family Controls (Distribution)** entitlement, requested per bundle ID.
+- Apps never see raw minutes or app names. The app schedules the night window and four usage thresholds (2, 5, 15, 60 min); iOS wakes a monitor extension when one is reached. So each night is reported as "at least N minutes" plus the time 2 minutes were reached, which maps exactly onto the buckets in §3.
+- Unlike Shortcuts, the app reports every night, so a night with no report shows as "missing".
+- Details and limits: `ios/README.md`.
 
-### iPhone: Shortcuts automations
+### iPhone: Shortcuts automations (older route, no app)
 - Each participant creates two personal automations in Apple's built-in **Shortcuts** app: "When [apps] are **opened**" and "When [apps] are **closed**", both set to **Run Immediately**, without notification.
 - Each runs a small shortcut that sends `{participant, platform: ios, kind: open|close, occurred_at}` to Supabase.
 - Logging both opening and closing matters: someone who opens an app at 20:55 and scrolls until 23:00 is caught by the "closed" event.
@@ -167,7 +170,7 @@ Visual style: a dark night-sky purple background, warm moon yellow for success, 
 
 ## 11. Installing on the trial phones
 
-- **iPhone:** nothing to install. Set up the two Shortcuts automations (guide in `ios-shortcuts/`), then open the web app in Safari and choose "Add to Home Screen".
+- **iPhone:** install the Moonlight app from Xcode (development build, phone registered in the developer account) until the Family Controls distribution entitlement allows TestFlight. Guide in `ios/SETUP.md`. The Shortcuts route (`ios-shortcuts/`) remains as a fallback.
 - **Android:** Android Studio on the Mac builds an installable file (APK). Either connect the phone by cable and install from Android Studio, or send the APK and open it on the phone after allowing "install unknown apps". No Play Store account is needed. Push needs a free Firebase project.
 
 ## 12. Project layout
@@ -176,7 +179,8 @@ Visual style: a dark night-sky purple background, warm moon yellow for success, 
 moonlight/
   CONCEPT.md          this document
   supabase/           database migrations
-  ios-shortcuts/      setup guide for the iPhone automations
+  ios/                native iPhone app (SwiftUI, Screen Time)
+  ios-shortcuts/      older iPhone route: Shortcuts automations
   android/            Kotlin measuring app
   analysis/           scripts that turn raw events into nights
   web/                the web app (prototype with made-up data so far)
@@ -197,7 +201,7 @@ moonlight/
 - Baseline week before the challenge.
 - Large-group mode (percentages instead of names).
 - Several groups, invite links.
-- Native iPhone app with Screen Time, if a paid or university Apple developer account becomes available.
+- Push notification when everyone has reported (APNs key + Supabase Edge Function).
 - Evaluation export.
 - Exclusion list for apps that shouldn't count.
 

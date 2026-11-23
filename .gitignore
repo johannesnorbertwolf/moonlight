@@ -25,3 +25,8 @@ analysis/output/
 
 # Generated, per-participant shortcut files
 ios-shortcuts/out/
+
+# Xcode
+ios/build/
+xcuserdata/
+*.xcuserstate
