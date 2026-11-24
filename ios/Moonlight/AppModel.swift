@@ -19,19 +19,70 @@ final class AppModel: ObservableObject {
     @Published var loadError: String?
     @Published var toast: String?
     @Published var lang = L10n.lang
+    /// Code from an invite link that hasn't been acted on yet (onboarding or the switch-group alert).
+    @Published var pendingCode: String?
+    /// The code of the group I'm in, for rejoining silently when the sign-in is lost.
+    private var groupCode = UserDefaults.standard.string(forKey: "groupCode")
 
     private let remote = Remote.shared
     private let store = SharedStore.shared
 
     // MARK: onboarding
 
-    func join(name: String, goal: String) async throws {
-        try await remote.join(name: name, goal: goal)
+    /// Joins the group with `code`. Throws RemoteError with `nameTaken` / `unknownCode`.
+    func join(code: String, name: String, goal: String, takeover: Bool = false) async throws {
+        let pid = try await remote.join(code: code, name: name, goal: goal, takeover: takeover)
+        joined(participant: pid, code: Invite.normalize(code), name: name, goal: goal)
+    }
+
+    /// Starts a new group with me as owner.
+    func createGroup(_ groupName: String, name: String, goal: String) async throws {
+        let pid = try await remote.createGroup(groupName: groupName, name: name, goal: goal)
+        joined(participant: pid, code: nil, name: name, goal: goal) // the code arrives with load()
+    }
+
+    private func joined(participant: String, code: String?, name: String, goal: String) {
         self.name = name
         self.goal = goal
         UserDefaults.standard.set(name, forKey: "name")
-        store.participant = name
+        setGroupCode(code)
+        // The Screen Time extension reports under this id (migration 0005).
+        if store.participant != participant {
+            store.participant = participant
+        }
         store.goal = goal
+        group = nil
+        pendingCode = nil
+    }
+
+    private func setGroupCode(_ code: String?) {
+        groupCode = code
+        UserDefaults.standard.set(code, forKey: "groupCode")
+    }
+
+    /// Offered when an invite link to another group is opened after onboarding.
+    @Published var switchOffer: GroupInfo?
+
+    /// An invite link (or QR code) opened the app.
+    func openInvite(_ code: String) {
+        if !onboarded { pendingCode = code; return }
+        if code == groupCode { return }
+        Task {
+            if let info = try? await remote.groupInfo(code: code) { switchOffer = info } else { toast = t("join.notFound") }
+        }
+    }
+
+    /// Leaves the group on an invite link to another group, keeping my name and goal.
+    func switchGroup(to code: String) async {
+        do {
+            try await join(code: code, name: name, goal: goal)
+            if ScreenTime.shared.authorized { ScreenTime.shared.startMonitoring() }
+            await load()
+        } catch let e as RemoteError where e.nameTaken {
+            toast = t("join.nameTakenShort")
+        } catch {
+            toast = t("join.err")
+        }
     }
 
     func finishOnboarding() {
@@ -63,15 +114,25 @@ final class AppModel: ObservableObject {
         await Reporter.uploadPending()
         do {
             var data = try await remote.groupData()
-            if data == nil, !name.isEmpty {
+            if data == nil, !name.isEmpty, let code = groupCode, await remote.isNewUser {
                 // Joined before but the anonymous sign-in is gone: join again with the same name,
                 // which takes over the same participant.
-                try await remote.join(name: name, goal: goal)
+                let pid = try await remote.join(code: code, name: name, goal: goal, takeover: true)
+                store.participant = pid
                 data = try await remote.groupData()
             }
             if let data {
+                // Keep what's needed to report and rejoin (also moves older installs to ids).
+                if let code = data.group.code, code != groupCode { setGroupCode(code) }
+                if store.participant != data.me {
+                    store.participant = data.me
+                    await Reporter.uploadPending()
+                }
                 group = GroupModel.from(data)
                 loadError = nil
+            } else if await !remote.isNewUser || groupCode == nil {
+                // Signed in but in no group (removed by the owner, or left): back to the start.
+                reset(signOut: false)
             } else {
                 loadError = t("error.load")
             }
@@ -114,9 +175,30 @@ final class AppModel: ObservableObject {
         return true
     }
 
-    func reset() {
-        Task { await remote.signOut() }
-        for k in ["onboarded", "name"] { UserDefaults.standard.removeObject(forKey: k) }
+    func removeMember(_ m: Member) async {
+        do {
+            try await remote.removeMember(m.id)
+            await load()
+        } catch {
+            toast = t("onb.err.network")
+        }
+    }
+
+    /// "Leave group and delete my data".
+    func leaveGroup() async {
+        do {
+            try await remote.leaveGroup()
+        } catch {
+            toast = t("onb.err.network")
+            return
+        }
+        reset()
+    }
+
+    func reset(signOut: Bool = true) {
+        if signOut { Task { await remote.signOut() } }
+        for k in ["onboarded", "name", "groupCode"] { UserDefaults.standard.removeObject(forKey: k) }
+        groupCode = nil
         store.participant = nil
         onboarded = false
         name = ""

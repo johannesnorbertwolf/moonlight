@@ -1,7 +1,7 @@
 # Moonlight web app
 
 The screens from `CONCEPT.md` §7. Two modes:
-- **Live:** join with just a name: while there is one group, no code is needed (`supabase/migrations/0003_join_without_code.sql`). The app signs in anonymously, loads the group through the functions in `supabase/migrations/0002_groups_and_reactions.sql`, computes each night from the raw events (`estimate.js`, same rule as `analysis/summarize_nights.py`) and stores reactions in the database. Requires "Allow anonymous sign-ins" in Supabase.
+- **Live:** start a group or join one with its invite link (`?join=CODE`) or 6-character code (`supabase/migrations/0005_many_groups.sql`). The app signs in anonymously, loads the group through the functions in `supabase/migrations/0002_groups_and_reactions.sql`, computes each night from the raw events (`estimate.js`, same rule as `analysis/summarize_nights.py`) and stores reactions in the database. Requires "Allow anonymous sign-ins" in Supabase.
 - **Demo:** "Try the demo instead" on the welcome screen; a made-up group, nothing sent anywhere.
 
 Published to GitHub Pages by `.github/workflows/pages.yml` on every push to `main` that changes `web/`.
@@ -35,7 +35,9 @@ Then open http://localhost:8742 on the Mac, or `http://<your Mac's IP>:8742` on 
 
 - Nights are computed in the browser's time zone, and with the member's *current* goal time for all past nights.
 - Anyone with the link who types an existing member's name takes over that member (meant for switching phones; fine for a trial among friends).
-- The browser remembers the name: if its sign-in is lost, it joins again silently. On iPhone, the home-screen app and Safari have separate storage, so you join once in each.
+- Invite page (`#/invite`): link, QR code (qrcode-generator from jsDelivr) and code. The group's owner can remove members in Settings; everyone can leave (which deletes their data).
+- Android users tap **Connect the measuring app** after joining, which hands their participant id to the Android app (`intent://connect…`).
+- The browser remembers the name and group code: if its sign-in is lost, it joins again silently. On iPhone, the home-screen app and Safari have separate storage, so you join once in each.
 - iPhone nights without any events count as phone-free; a silent night can't be told apart from broken automations yet.
 - Settings → "Demo: allow reactions during the night" bypasses the rule that reactions are only possible outside night windows.
 

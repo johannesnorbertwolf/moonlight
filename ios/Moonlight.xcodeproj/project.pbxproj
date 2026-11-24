@@ -16,6 +16,7 @@
 		6FACFAC4154BF78EF24B27B4 /* Strings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FD577E05DB9DAF5C8C48346 /* Strings.swift */; };
 		717650849D74DB0A50666FB0 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EAAEC311159D2C0B4433BFB /* AppModel.swift */; };
 		894CCBA2E095180677E94873 /* DemoGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90911CA6653DDBE9AC2ABCB8 /* DemoGroup.swift */; };
+		961E6325390FED7D0DD17314 /* Invite.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BD6A2CCC41B9D40D76360FC /* Invite.swift */; };
 		9E93D72F1539B63A8A468A61 /* NightMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CD8F76A10BF836AF5391FCC /* NightMonitor.swift */; };
 		AD1B9670AE76012A64F29087 /* Model.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35F118064849362E7C03EE32 /* Model.swift */; };
 		E71611CD76474AB7D239FBB4 /* MoonlightMonitor.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = CB04894BF7307F3772AE5CA2 /* MoonlightMonitor.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -51,11 +52,13 @@
 
 /* Begin PBXFileReference section */
 		0EE72021126D7670AABB4514 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		19995CEC35295A5B5DB698F5 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		1EAAEC311159D2C0B4433BFB /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		35F118064849362E7C03EE32 /* Model.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Model.swift; sourceTree = "<group>"; };
 		421F2E0090CEFAD8D2937BF7 /* Remote.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Remote.swift; sourceTree = "<group>"; };
 		4299223E1D0F2A2380787E30 /* Screens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Screens.swift; sourceTree = "<group>"; };
 		4CD8F76A10BF836AF5391FCC /* NightMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NightMonitor.swift; sourceTree = "<group>"; };
+		5BD6A2CCC41B9D40D76360FC /* Invite.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Invite.swift; sourceTree = "<group>"; };
 		8FD577E05DB9DAF5C8C48346 /* Strings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Strings.swift; sourceTree = "<group>"; };
 		90911CA6653DDBE9AC2ABCB8 /* DemoGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoGroup.swift; sourceTree = "<group>"; };
 		A5E18E5FDBEB132B038DC644 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -78,6 +81,8 @@
 				1EAAEC311159D2C0B4433BFB /* AppModel.swift */,
 				A5E18E5FDBEB132B038DC644 /* Assets.xcassets */,
 				90911CA6653DDBE9AC2ABCB8 /* DemoGroup.swift */,
+				19995CEC35295A5B5DB698F5 /* Info.plist */,
+				5BD6A2CCC41B9D40D76360FC /* Invite.swift */,
 				35F118064849362E7C03EE32 /* Model.swift */,
 				EDF24A1508151FF7F0BC3BD9 /* Moonlight.entitlements */,
 				EFDDF1651AB806A4B15D577A /* MoonlightApp.swift */,
@@ -226,6 +231,7 @@
 			files = (
 				717650849D74DB0A50666FB0 /* AppModel.swift in Sources */,
 				894CCBA2E095180677E94873 /* DemoGroup.swift in Sources */,
+				961E6325390FED7D0DD17314 /* Invite.swift in Sources */,
 				AD1B9670AE76012A64F29087 /* Model.swift in Sources */,
 				FD4B2DD2267E5B28B903727B /* MoonlightApp.swift in Sources */,
 				2DD2C101F63F7FFDA6492792 /* OnboardingView.swift in Sources */,
@@ -266,6 +272,7 @@
 				CODE_SIGN_ENTITLEMENTS = Moonlight/Moonlight.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Moonlight/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Moonlight;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -287,6 +294,7 @@
 				CODE_SIGN_ENTITLEMENTS = Moonlight/Moonlight.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Moonlight/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Moonlight;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

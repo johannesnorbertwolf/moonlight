@@ -49,7 +49,24 @@ function emptyState() {
 // ---------------------------------------------------------------- onboarding
 
 let onbStep = 0;
-const onbDraft = { name: state.profile?.name || "", goal: state.profile?.goal || "21:00", platform: state.profile?.platform || "ios", demo: false };
+const onbDraft = {
+  name: state.profile?.name || "", goal: state.profile?.goal || "21:00", platform: state.profile?.platform || guessPlatform(),
+  demo: false, code: "", info: null, creating: false, groupName: "", takeover: false,
+};
+
+function guessPlatform() {
+  return /android/i.test(navigator.userAgent) ? "android" : "ios";
+}
+
+const isIPhone = () => /iPhone|iPad|iPod/.test(navigator.userAgent);
+const normalizeCode = (c) => String(c || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+const spacedCode = (c) => (c && c.length === 6 ? `${c.slice(0, 3)} ${c.slice(3)}` : c || "");
+const inviteLink = (code) => `${new URL(".", location.href).href.split("?")[0]}?join=${code}`;
+const appLink = (code) => `moonlight://join/${code}`;
+// Opens the Android measuring app and hands it the participant id (see android/…/MainActivity.kt).
+const androidConnectLink = (p) =>
+  `intent://connect?p=${encodeURIComponent(p.participant)}&goal=${encodeURIComponent(p.goal)}&name=${encodeURIComponent(p.name)}` +
+  "#Intent;scheme=moonlight;package=nl.moonlight.measure;end";
 
 function renderOnboarding() {
   document.querySelector("nav.tabs").hidden = true;
@@ -61,82 +78,163 @@ function renderOnboarding() {
         <p class="muted">${t("onb.welcome.body")}</p>
         <div class="seg" style="margin:24px 0 8px">${langButtons()}</div>
         <button class="btn-primary btn-block" id="go">${t("onb.start")}</button>
+        ${onbDraft.code ? `<p class="muted small">${t("join.linkReady")}</p>` : ""}
+        ${onbDraft.code && isIPhone() ? `<a class="btn btn-block" href="${appLink(onbDraft.code)}" style="margin-top:12px">${t("web.openInApp")}</a>` : ""}
         <button class="btn-block link" id="demo" style="margin-top:20px">${t("onb.demo")}</button>
       </div>`;
     bindLangButtons(renderOnboarding);
     app.querySelector("#go").onclick = () => { onbDraft.demo = false; onbStep = 1; renderOnboarding(); };
-    app.querySelector("#demo").onclick = () => { onbDraft.demo = true; onbStep = 1; renderOnboarding(); };
+    app.querySelector("#demo").onclick = () => { onbDraft.demo = true; onbStep = 2; renderOnboarding(); };
     return;
   }
-  if (onbStep === 1) {
-    app.innerHTML = `
-      <h1>Moonlight</h1>
-      <form id="f" novalidate>
-        <label for="name">${t("onb.name")}</label>
-        <input id="name" autocomplete="given-name" value="${esc(onbDraft.name)}" maxlength="40">
-        <div class="hint">${t("onb.name.hint")}</div>
-        <div class="error" id="e-name"></div>
+  if (onbStep === 1) return renderGroupStep();
+  if (onbStep === 2) return renderProfileStep();
 
-        <label for="goal">${t("onb.goal")}</label>
-        <input id="goal" type="time" value="${onbDraft.goal}">
-        <div class="hint">${t("onb.goal.hint")}</div>
-
-        <label>${t("onb.platform")}</label>
-        <div class="seg">
-          <button type="button" data-p="ios" aria-pressed="${onbDraft.platform === "ios"}">iPhone</button>
-          <button type="button" data-p="android" aria-pressed="${onbDraft.platform === "android"}">Android</button>
-        </div>
-        <div class="error" id="e-form"></div>
-        <button class="btn-primary btn-block" type="submit" id="submit">${t("onb.continue")}</button>
-      </form>`;
-    const f = app.querySelector("#f");
-    f.querySelectorAll("[data-p]").forEach((b) => (b.onclick = () => {
-      onbDraft.platform = b.dataset.p;
-      f.querySelectorAll("[data-p]").forEach((x) => x.setAttribute("aria-pressed", x === b));
-    }));
-    const name = f.querySelector("#name");
-    name.oninput = () => (f.querySelector("#e-name").textContent = "");
-    f.onsubmit = async (ev) => {
-      ev.preventDefault();
-      onbDraft.name = name.value.trim();
-      onbDraft.goal = f.querySelector("#goal").value || "21:00";
-      let ok = true;
-      if (!onbDraft.name) { f.querySelector("#e-name").textContent = t("onb.err.name"); ok = false; }
-      if (!ok) return;
-      if (!onbDraft.demo) {
-        const btn = f.querySelector("#submit");
-        btn.disabled = true;
-        btn.textContent = t("loading");
-        try {
-          const r = await getRemote();
-          await r.join(onbDraft.name, onbDraft.goal, onbDraft.platform);
-        } catch (e) {
-          btn.disabled = false;
-          btn.textContent = t("onb.continue");
-          f.querySelector("#e-form").textContent = t("onb.err.network");
-          console.error(e);
-          return;
-        }
-      }
-      onbStep = 2;
-      renderOnboarding();
-    };
-    return;
-  }
+  const p = state.pendingProfile;
+  const ios = onbDraft.platform === "ios";
   app.innerHTML = `
     <h1>${t("onb.setup.title")}</h1>
-    <div class="card"><p>${t(onbDraft.platform === "ios" ? "onb.setup.ios" : "onb.setup.android")}</p>
-    <p class="muted" style="margin:0">${t("onb.setup.home")}</p></div>
+    <div class="card"><p>${t(ios ? "onb.setup.ios" : "onb.setup.android")}</p>
+      ${onbDraft.demo ? "" : ios
+        ? (p?.code ? `<a class="btn btn-primary btn-block" href="${appLink(p.code)}">${t("web.openInApp")}</a>` : "")
+        : `<a class="btn btn-primary btn-block" href="${androidConnectLink(p)}">${t("setup.connect")}</a>
+           <p class="muted small" style="margin-bottom:0">${t("setup.connect.hint")}</p>`}
+    </div>
+    <div class="card"><p class="muted" style="margin:0">${t("onb.setup.home")}</p></div>
     <button class="btn-primary btn-block" id="done">${t("onb.done")}</button>`;
   app.querySelector("#done").onclick = () => {
     state.mode = onbDraft.demo ? "demo" : "live";
-    state.profile = { name: onbDraft.name, goal: onbDraft.goal, platform: onbDraft.platform };
+    state.profile = onbDraft.demo
+      ? { name: onbDraft.name, goal: onbDraft.goal, platform: onbDraft.platform }
+      : state.pendingProfile;
+    delete state.pendingProfile;
     save();
     onbStep = 0;
     location.hash = "#/today";
     render();
   };
 }
+
+function renderGroupStep() {
+  const d = onbDraft;
+  app.innerHTML = `
+    <button class="link" id="back">‹ ${t("back")}</button>
+    <h1>${t("join.title")}</h1>
+    <p class="muted">${t("join.body")}</p>
+    <label for="code">${t("join.code")}</label>
+    <input id="code" value="${esc(d.code)}" placeholder="K7QM4P" autocapitalize="characters" autocomplete="off" spellcheck="false"
+      style="font-family:ui-monospace,monospace;font-size:22px;letter-spacing:2px" maxlength="9">
+    <div class="hint" id="found"></div>
+    <button class="btn-primary btn-block" id="join" disabled>${t("join.join")}</button>
+    <p class="muted" style="text-align:center;margin:20px 0">${t("join.or")}</p>
+    <label for="gname">${t("create.name")}</label>
+    <input id="gname" value="${esc(d.groupName)}" placeholder="${esc(t("create.placeholder"))}" maxlength="40">
+    <div class="hint">${t("create.hint")}</div>
+    <button class="btn-block" id="create" style="margin-top:12px">${t("create.button")}</button>`;
+  const codeEl = app.querySelector("#code");
+  const found = app.querySelector("#found");
+  const joinBtn = app.querySelector("#join");
+  let seq = 0;
+  const lookUp = async () => {
+    const c = normalizeCode(codeEl.value);
+    d.code = c;
+    d.info = null;
+    joinBtn.disabled = true;
+    found.textContent = "";
+    found.classList.remove("error");
+    if (c.length !== 6) return;
+    const mySeq = ++seq;
+    found.textContent = t("loading");
+    let info = null;
+    try { info = await (await getRemote()).groupInfo(c); } catch (e) { console.error(e); }
+    if (mySeq !== seq) return;
+    d.info = info;
+    joinBtn.disabled = !info;
+    found.textContent = info ? `✓ ${t(info.members === 1 ? "join.found1" : "join.found", { group: info.name, n: info.members })}` : t("join.notFound");
+    found.classList.toggle("error", !info);
+  };
+  codeEl.oninput = lookUp;
+  if (d.code) lookUp();
+  app.querySelector("#back").onclick = () => { onbStep = 0; renderOnboarding(); };
+  joinBtn.onclick = () => { d.creating = false; d.takeover = false; onbStep = 2; renderOnboarding(); };
+  app.querySelector("#create").onclick = () => {
+    d.groupName = app.querySelector("#gname").value.trim();
+    if (!d.groupName) { app.querySelector("#gname").focus(); return; }
+    d.creating = true;
+    onbStep = 2;
+    renderOnboarding();
+  };
+}
+
+function renderProfileStep() {
+  const d = onbDraft;
+  const title = d.demo ? "Moonlight" : d.creating ? d.groupName : d.info?.name || "Moonlight";
+  app.innerHTML = `
+    <button class="link" id="back">‹ ${t("back")}</button>
+    <h1>${esc(title)}</h1>
+    ${d.demo ? "" : `<p class="muted">${t(d.creating ? "create.you" : "join.you")}</p>`}
+    <form id="f" novalidate>
+      <label for="name">${t("onb.name")}</label>
+      <input id="name" autocomplete="given-name" value="${esc(d.name)}" maxlength="40">
+      <div class="hint">${t("onb.name.hint")}</div>
+      <div class="error" id="e-name"></div>
+
+      <label for="goal">${t("onb.goal")}</label>
+      <input id="goal" type="time" value="${d.goal}">
+      <div class="hint">${t("onb.goal.hint")}</div>
+
+      <label>${t("onb.platform")}</label>
+      <div class="seg">
+        <button type="button" data-p="ios" aria-pressed="${d.platform === "ios"}">iPhone</button>
+        <button type="button" data-p="android" aria-pressed="${d.platform === "android"}">Android</button>
+      </div>
+      <div class="error" id="e-form"></div>
+      <button class="btn-primary btn-block" type="submit" id="submit">${t("onb.continue")}</button>
+    </form>`;
+  app.querySelector("#back").onclick = () => { onbStep = d.demo ? 0 : 1; renderOnboarding(); };
+  const f = app.querySelector("#f");
+  f.querySelectorAll("[data-p]").forEach((b) => (b.onclick = () => {
+    d.platform = b.dataset.p;
+    f.querySelectorAll("[data-p]").forEach((x) => x.setAttribute("aria-pressed", x === b));
+  }));
+  const name = f.querySelector("#name");
+  name.oninput = () => { f.querySelector("#e-name").textContent = ""; d.takeover = false; };
+  f.onsubmit = async (ev) => {
+    ev.preventDefault();
+    d.name = name.value.trim();
+    d.goal = f.querySelector("#goal").value || "21:00";
+    if (!d.name) { f.querySelector("#e-name").textContent = t("onb.err.name"); return; }
+    if (!d.demo) {
+      const btn = f.querySelector("#submit");
+      btn.disabled = true;
+      btn.textContent = t("loading");
+      try {
+        const r = await getRemote();
+        const participant = d.creating
+          ? await r.createGroup(d.groupName, d.name, d.goal, d.platform)
+          : await r.join(d.code, d.name, d.goal, d.platform, d.takeover);
+        const g = await r.loadGroup();
+        state.pendingProfile = { name: d.name, goal: d.goal, platform: d.platform, participant, code: g?.code || d.code };
+        save();
+      } catch (e) {
+        btn.disabled = false;
+        btn.textContent = t("onb.continue");
+        if (e instanceof r_NameTaken()) {
+          d.takeover = true; // a second tap means "that's me"
+          f.querySelector("#e-form").textContent = t("join.nameTaken", { group: esc(d.info?.name || "") });
+        } else {
+          f.querySelector("#e-form").textContent = t("onb.err.network");
+        }
+        console.error(e);
+        return;
+      }
+    }
+    onbStep = 3;
+    renderOnboarding();
+  };
+}
+
+const r_NameTaken = () => remote?.NameTakenError ?? class {};
 
 function langButtons() {
   return ["en", "nl"].map((l) =>
@@ -290,8 +388,32 @@ function reactionsFor(group, member, date) {
   return { counts, mine };
 }
 
+function inviteCard(group) {
+  if (!group.live || !group.code || group.members.length > 1) return "";
+  return `<div class="card"><h2>${t("invite.alone.title")}</h2><p class="muted">${t("invite.alone.body")}</p>
+    <a class="btn btn-primary btn-block" href="#/invite">${t("invite.title")}</a></div>`;
+}
+
+function inviteButton(group) {
+  return group.live && group.code ? `<a class="link" href="#/invite" style="float:right;margin-top:4px">＋ ${t("invite.title")}</a>` : "";
+}
+
 function renderGroup(group) {
-  if (!group.last) { app.innerHTML = `<h1>${esc(group.name)}</h1>${emptyState()}`; return; }
+  if (!group.last) {
+    app.innerHTML = `
+      ${inviteButton(group)}
+      <h1>${esc(group.name)}</h1>
+      <p class="muted">${t("group.starts", { date: longDate(group.start) })}</p>
+      ${inviteCard(group)}
+      ${group.members.map((m) => `
+        <div class="member">
+          <div class="avatar">${esc((m.name[0] || "?").toUpperCase())}</div>
+          <div class="grow"><div style="font-weight:600">${esc(m.name)}${m.me ? ` <span class="muted small">(${t("group.you")})</span>` : ""}</div>
+          <div class="muted small">${t("group.goal", { time: m.goal })}</div></div>
+        </div>`).join("")}
+      ${emptyState()}`;
+    return;
+  }
   const date = isoDate(group.last);
   const me = group.members.find((m) => m.me);
   const ok = group.members.filter((m) => m.nights[date].bucket === "free").length;
@@ -299,9 +421,11 @@ function renderGroup(group) {
   const canReact = state.demo || !inNightWindow(me.goal);
 
   app.innerHTML = `
+    ${inviteButton(group)}
     <p class="muted" style="margin:0">${t("group.lastNight")} · ${longDate(group.last)}</p>
     <h1>${t("group.title", { ok, n: group.members.length })}</h1>
     <p class="muted">${t("today.groupStreak")}: ${nightsText(groupStreak(group))}</p>
+    ${inviteCard(group)}
 
     ${group.members.map((m) => {
       const n = m.nights[date];
@@ -409,6 +533,56 @@ function closeTray() {
   document.querySelectorAll(".tray").forEach((x) => x.remove());
 }
 
+// ---------------------------------------------------------------- invite
+
+let qrLib = null;
+function loadQr() {
+  qrLib ??= new Promise((resolve, reject) => {
+    const el = document.createElement("script");
+    el.src = "https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js";
+    el.onload = () => resolve(window.qrcode);
+    el.onerror = reject;
+    document.head.appendChild(el);
+  });
+  return qrLib;
+}
+
+function renderInvite(group) {
+  if (!group.live || !group.code) { location.hash = "#/group"; return; }
+  const link = inviteLink(group.code);
+  const message = t("invite.message", { group: group.name, code: group.code });
+  app.innerHTML = `
+    <a class="link" href="#/group">‹ ${t("back")}</a>
+    <h1>${t("invite.title")}</h1>
+    <p class="muted">${t("invite.body", { group: esc(group.name) })}</p>
+    <div class="qr" id="qr" role="img" aria-label="${t("invite.qr")}"></div>
+    <div style="text-align:center;margin:16px 0">
+      <div class="muted small">${t("invite.code")}</div>
+      <div class="code">${spacedCode(group.code)}</div>
+    </div>
+    <button class="btn-primary btn-block" id="share">${t("invite.share")}</button>
+    <p class="muted small" style="word-break:break-all;text-align:center">${esc(link)}</p>`;
+  loadQr().then((qrcode) => {
+    const q = qrcode(0, "M");
+    q.addData(link);
+    q.make();
+    const box = app.querySelector("#qr");
+    if (box) box.innerHTML = q.createSvgTag({ cellSize: 6, margin: 2, scalable: true });
+  }).catch((e) => console.error(e));
+  app.querySelector("#share").onclick = async () => {
+    if (navigator.share) {
+      try { await navigator.share({ title: "Moonlight", text: message, url: link }); } catch (e) { /* cancelled */ }
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(`${message}\n${link}`);
+      toast(t("invite.copied"));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+}
+
 // ---------------------------------------------------------------- history
 
 function renderHistory(group) {
@@ -446,8 +620,29 @@ function renderHistory(group) {
 function renderSettings(group) {
   const live = state.mode === "live";
   const me = group.members.find((m) => m.me);
+  const android = live && state.profile?.platform === "android" && state.profile?.participant;
   app.innerHTML = `
     <h1>${t("settings.title")}</h1>
+    ${live ? `
+    <div class="card">
+      <h2>${t("settings.group")}</h2>
+      <div class="row" style="display:flex;justify-content:space-between"><span>${esc(group.name)}</span>
+        <span class="code-small">${spacedCode(group.code)}</span></div>
+      ${group.code ? `<a class="btn btn-block" href="#/invite" style="margin-top:12px">${t("invite.title")}</a>` : ""}
+      ${group.iAmOwner && group.members.length > 1 ? `
+        <h2 style="margin-top:16px">${t("members.title")}</h2>
+        ${group.members.filter((m) => !m.me).map((m) => `
+          <div class="row" style="display:flex;justify-content:space-between;align-items:center;margin:6px 0">
+            <span>${esc(m.name)}</span><button class="link danger" data-remove="${m.id}">${t("remove.confirm")}</button>
+          </div>`).join("")}` : ""}
+      <button class="btn-block danger" id="leave" style="margin-top:12px">${t("leave.button")}</button>
+    </div>` : ""}
+    ${android ? `
+    <div class="card">
+      <h2>${t("setup.connect")}</h2>
+      <p class="muted small">${t("setup.connect.hint")}</p>
+      <a class="btn btn-block" href="${androidConnectLink({ ...state.profile, goal: me.goal })}">${t("setup.connect")}</a>
+    </div>` : ""}
     <form id="f" novalidate>
       <label for="name">${t("settings.name")}</label>
       <input id="name" value="${esc(me.name)}" maxlength="40" ${live ? "disabled" : ""}>
@@ -455,13 +650,13 @@ function renderSettings(group) {
       <div class="error" id="e-name"></div>
       <label for="goal">${t("settings.goal")}</label>
       <input id="goal" type="time" value="${me.goal}">
-      <div class="hint">${t("settings.goal.note")}</div>
+      <div class="hint">${t("settings.goal.note")}${android ? " " + t("settings.goal.android") : ""}</div>
       <label>${t("settings.language")}</label>
       <div class="seg">${langButtons()}</div>
       <label class="toggle"><input type="checkbox" id="demo" ${state.demo ? "checked" : ""}> ${t("settings.demo")}</label>
       <button class="btn-primary btn-block" type="submit">${t("settings.save")}</button>
     </form>
-    <button class="btn-block" id="reset">${t("settings.reset")}</button>
+    ${live ? "" : `<button class="btn-block" id="reset">${t("settings.reset")}</button>`}
     <p class="muted small" style="margin-top:16px">${live ? t("settings.live", { group: esc(group.name) }) : t("settings.prototype")}</p>`;
   bindLangButtons(() => render());
   const f = app.querySelector("#f");
@@ -489,37 +684,95 @@ function renderSettings(group) {
     toast(t("settings.saved"));
     render();
   };
-  app.querySelector("#reset").onclick = async () => {
-    if (live) {
-      try { await (await getRemote()).signOut(); } catch (e) { console.error(e); }
+  app.querySelectorAll("[data-remove]").forEach((b) => (b.onclick = async () => {
+    const m = group.members.find((x) => x.id === b.dataset.remove);
+    if (!confirm(`${t("remove.title", { name: m.name })}\n\n${t("remove.body")}`)) return;
+    try {
+      await (await getRemote()).removeMember(m.id);
+    } catch (e) {
+      console.error(e);
+      toast(t("onb.err.network"));
     }
-    delete state.profile;
-    delete state.mode;
-    state.reactions = {};
-    save();
-    onbStep = 0;
     render();
+  }));
+  const leave = app.querySelector("#leave");
+  if (leave) leave.onclick = async () => {
+    if (!confirm(`${t("leave.button")}?\n\n${t("leave.body", { group: group.name })}`)) return;
+    try {
+      await (await getRemote()).leaveGroup();
+    } catch (e) {
+      console.error(e);
+      toast(t("onb.err.network"));
+      return;
+    }
+    startOver();
   };
+  const reset = app.querySelector("#reset");
+  if (reset) reset.onclick = startOver;
+}
+
+/** Back to the first onboarding screen (keeps name and goal as suggestions). */
+function startOver() {
+  onbDraft.code = "";
+  onbDraft.info = null;
+  delete state.profile;
+  delete state.mode;
+  state.reactions = {};
+  save();
+  onbStep = 0;
+  render();
 }
 
 // ---------------------------------------------------------------- router
 
-const ROUTES = { today: renderToday, recap: renderRecap, group: renderGroup, history: renderHistory, settings: renderSettings };
-const TAB_FOR = { today: "today", recap: "today", group: "group", history: "history", settings: "settings" };
+const ROUTES = { today: renderToday, recap: renderRecap, group: renderGroup, invite: renderInvite, history: renderHistory, settings: renderSettings };
+const TAB_FOR = { today: "today", recap: "today", group: "group", invite: "group", history: "history", settings: "settings" };
 let renderSeq = 0;
 
 async function loadCurrentGroup() {
   if (state.mode === "demo") return buildGroup(state.profile);
   const r = await getRemote();
-  let group = await r.loadGroup();
-  if (!group && state.profile?.name) {
+  const p = state.profile;
+  if (!(await r.hasSession()) && p?.name && p?.code) {
     // This browser joined before but its sign-in is gone (cleared storage, expired session):
     // join again silently with the saved name, which takes over the same participant.
-    const p = state.profile;
-    await r.join(p.name, p.goal, p.platform);
-    group = await r.loadGroup();
+    p.participant = await r.join(p.code, p.name, p.goal, p.platform, true);
+    save();
   }
+  const group = await r.loadGroup();
+  if (group?.code && p && p.code !== group.code) { p.code = group.code; save(); }
   return group;
+}
+
+/** An invite link (?join=CODE) opened the page. */
+async function takeInviteFromUrl() {
+  const url = new URL(location.href);
+  const code = normalizeCode(url.searchParams.get("join"));
+  if (!url.searchParams.has("join")) return;
+  url.searchParams.delete("join");
+  history.replaceState(null, "", url.pathname + url.search + location.hash);
+  if (code.length !== 6) return;
+  if (!state.mode || !state.profile || state.mode === "demo") {
+    onbDraft.code = code;
+    return;
+  }
+  if (state.profile.code === code) return;
+  // Already in another group: offer to switch.
+  try {
+    const r = await getRemote();
+    const info = await r.groupInfo(code);
+    if (!info) { toast(t("join.notFound")); return; }
+    const current = await r.loadGroup().catch(() => null);
+    if (!confirm(`${t("switch.title", { group: info.name })}\n\n${t("switch.body", { current: current?.name || "" })}`)) return;
+    const p = state.profile;
+    p.participant = await r.join(code, p.name, p.goal, p.platform, false);
+    p.code = code;
+    save();
+    location.hash = "#/group";
+  } catch (e) {
+    console.error(e);
+    toast(e instanceof remote.NameTakenError ? t("join.nameTakenShort") : t("join.err"));
+  }
 }
 
 async function render() {
@@ -550,14 +803,13 @@ async function render() {
   }
   if (seq !== renderSeq) return; // a newer render started meanwhile
   if (!group) {
-    // Rejoining didn't work: ask again (same name keeps history).
-    delete state.mode;
-    save();
-    return renderOnboarding();
+    // Signed in but in no group (left, or removed by the owner): start over.
+    startOver();
+    return;
   }
   ROUTES[name](group);
 }
 
 window.addEventListener("hashchange", () => { window.scrollTo(0, 0); render(); });
 document.addEventListener("visibilitychange", () => { if (!document.hidden && state.mode === "live") render(); });
-render();
+takeInviteFromUrl().finally(render);

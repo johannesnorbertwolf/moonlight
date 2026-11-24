@@ -13,6 +13,9 @@ struct MoonlightApp: App {
                 .environmentObject(screenTime)
                 .preferredColorScheme(.dark)
                 .tint(Color.moon)
+                .onOpenURL { url in
+                    if let code = Invite.code(from: url) { model.openInvite(code) }
+                }
                 .onChange(of: phase) { _, p in
                     if p == .active, model.onboarded {
                         Task { await model.load() }
@@ -46,6 +49,17 @@ struct RootView: View {
             }
         }
         .id(model.lang) // redraw everything when the language changes
+        .alert(t("switch.title", ["group": model.switchOffer?.name ?? ""]),
+               isPresented: Binding(get: { model.switchOffer != nil }, set: { if !$0 { model.switchOffer = nil } }),
+               presenting: model.switchOffer) { offer in
+            Button(t("switch.join")) {
+                tab = 1
+                Task { await model.switchGroup(to: offer.code) }
+            }
+            Button(t("cancel"), role: .cancel) {}
+        } message: { _ in
+            Text(t("switch.body", ["current": model.group?.name ?? ""]))
+        }
         .overlay(alignment: .bottom) {
             if let msg = model.toast {
                 Text(msg)

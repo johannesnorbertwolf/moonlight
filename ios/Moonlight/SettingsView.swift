@@ -6,7 +6,8 @@ struct SettingsView: View {
     @EnvironmentObject var screenTime: ScreenTime
     @State private var goal = Date()
     @State private var showPicker = false
-    @State private var confirmReset = false
+    @State private var confirmLeave = false
+    @State private var showInvite = false
 
     var body: some View {
         Form {
@@ -15,6 +16,17 @@ struct SettingsView: View {
                 Text(t("settings.name.locked")).font(.footnote).foregroundStyle(Color.text2)
             }
             .listRowBackground(Color.surface)
+
+            if let g = model.group, g.live {
+                Section(t("settings.group")) {
+                    LabeledContent(g.name, value: g.code.map(Invite.spaced) ?? "")
+                        .font(.body.monospaced())
+                    if g.code != nil { Button(t("invite.title")) { showInvite = true } }
+                    if g.iAmOwner { NavigationLink(t("members.title")) { MembersView() } }
+                    Button(t("leave.button"), role: .destructive) { confirmLeave = true }
+                }
+                .listRowBackground(Color.surface)
+            }
 
             Section {
                 DatePicker(t("settings.goal"), selection: $goal, displayedComponents: .hourAndMinute)
@@ -57,10 +69,6 @@ struct SettingsView: View {
             }
             .listRowBackground(Color.surface)
 
-            Section {
-                Button(t("settings.reset"), role: .destructive) { confirmReset = true }
-            }
-            .listRowBackground(Color.surface)
         }
         .navigationTitle(t("settings.title"))
         .screen()
@@ -71,8 +79,53 @@ struct SettingsView: View {
         .familyActivityPicker(isPresented: $showPicker, selection: Binding(
             get: { screenTime.selection },
             set: { screenTime.saveSelection($0) }))
-        .confirmationDialog(t("settings.reset"), isPresented: $confirmReset) {
-            Button(t("settings.reset"), role: .destructive) { model.reset() }
+        .confirmationDialog(t("leave.button"), isPresented: $confirmLeave, titleVisibility: .visible) {
+            Button(t("leave.confirm"), role: .destructive) { Task { await model.leaveGroup() } }
+        } message: {
+            Text(t("leave.body", ["group": model.group?.name ?? ""]))
+        }
+        .sheet(isPresented: $showInvite) {
+            if let g = model.group { InviteSheet(group: g) }
+        }
+    }
+}
+
+/// For the group's owner: remove members (swipe left).
+struct MembersView: View {
+    @EnvironmentObject var model: AppModel
+    @State private var removing: Member?
+
+    var body: some View {
+        List {
+            if let g = model.group {
+                Section {
+                    ForEach(g.members) { m in
+                        HStack {
+                            Text(m.name)
+                            if m.isMe { Text("(\(t("group.you")))").foregroundStyle(Color.text2) }
+                            Spacer()
+                            Text(t("group.goal", ["time": m.goal])).font(.footnote).foregroundStyle(Color.text2)
+                        }
+                        .swipeActions {
+                            if !m.isMe {
+                                Button(t("remove.confirm"), role: .destructive) { removing = m }
+                            }
+                        }
+                    }
+                } footer: {
+                    Text(t("members.hint"))
+                }
+                .listRowBackground(Color.surface)
+            }
+        }
+        .navigationTitle(t("members.title"))
+        .screen()
+        .confirmationDialog(t("remove.title", ["name": removing?.name ?? ""]),
+                            isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }),
+                            titleVisibility: .visible, presenting: removing) { m in
+            Button(t("remove.confirm"), role: .destructive) { Task { await model.removeMember(m) } }
+        } message: { _ in
+            Text(t("remove.body"))
         }
     }
 }

@@ -188,8 +188,32 @@ struct RecapView: View {
 struct GroupScreen: View {
     @EnvironmentObject var model: AppModel
     @State private var trayFor: Member?
+    @State private var showInvite = false
 
     var body: some View {
+        content
+            .toolbar {
+                if model.group?.code != nil {
+                    Button { showInvite = true } label: { Label(t("invite.title"), systemImage: "person.badge.plus") }
+                }
+            }
+            .sheet(isPresented: $showInvite) {
+                if let g = model.group { InviteSheet(group: g).presentationDetents([.large]) }
+            }
+    }
+
+    /// Shown while you're the only member, so a new group gets its invite out.
+    @ViewBuilder private func inviteCard(_ g: GroupModel) -> some View {
+        if g.members.count == 1, g.code != nil {
+            Card {
+                Text(t("invite.alone.title")).font(.title3.weight(.semibold))
+                Text(t("invite.alone.body")).foregroundStyle(Color.text2)
+                Button(t("invite.title")) { showInvite = true }.buttonStyle(PrimaryButton())
+            }
+        }
+    }
+
+    private var content: some View {
         GroupGate { g in
             if let last = g.last {
                 let date = NightWindow.isoDate(last)
@@ -202,6 +226,7 @@ struct GroupScreen: View {
                         Text(t("group.lastNight") + " · " + Fmt.longDate(last)).foregroundStyle(Color.text2)
                         Text(t("group.title", ["ok": ok, "n": g.members.count])).font(.largeTitle.bold())
                         Text(t("today.groupStreak") + ": " + Fmt.nights(g.groupStreak())).foregroundStyle(Color.text2)
+                        inviteCard(g)
 
                         ForEach(g.members) { m in
                             memberRow(g, m, date: date, canReact: canReact)
@@ -234,8 +259,24 @@ struct GroupScreen: View {
                 .screen()
             } else {
                 ScrollView {
-                    VStack(alignment: .leading) {
+                    VStack(alignment: .leading, spacing: 12) {
                         Text(g.name).font(.largeTitle.bold())
+                        Text(t("group.starts", ["date": Fmt.longDate(g.start)])).foregroundStyle(Color.text2)
+                        inviteCard(g)
+                        ForEach(g.members) { m in
+                            HStack(spacing: 12) {
+                                Text(String(m.name.prefix(1)).uppercased())
+                                    .font(.headline)
+                                    .frame(width: 40, height: 40)
+                                    .background(Color.surface2, in: Circle())
+                                Text(m.name).font(.headline)
+                                if m.isMe { Text("(\(t("group.you")))").font(.footnote).foregroundStyle(Color.text2) }
+                                Spacer()
+                                Text(t("group.goal", ["time": m.goal])).font(.footnote).foregroundStyle(Color.text2)
+                            }
+                            .padding(12)
+                            .background(Color.surface, in: RoundedRectangle(cornerRadius: 16))
+                        }
                         EmptyNightsCard()
                     }
                     .padding(16)

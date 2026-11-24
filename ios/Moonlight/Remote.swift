@@ -1,5 +1,5 @@
 // Supabase over plain HTTPS: anonymous sign-in, then the functions from supabase/migrations
-// (join_group, group_data, set_reaction, update_goal). Same calls as web/remote.js.
+// (join_group, create_group, group_data, …). Same calls as web/remote.js.
 
 import Foundation
 
@@ -7,6 +7,8 @@ struct RemoteError: LocalizedError {
     let status: Int
     let body: String
     var errorDescription: String? { "HTTP \(status): \(body)" }
+    var nameTaken: Bool { body.contains("name taken") }
+    var unknownCode: Bool { body.contains("unknown group code") }
 }
 
 actor Remote {
@@ -61,10 +63,14 @@ actor Remote {
         }
         let fresh = try await authRequest("auth/v1/signup", body: ["data": [String: Any]()]) // anonymous sign-in
         store(fresh)
+        isNewUser = true
         return fresh.accessToken
     }
 
     var hasSession: Bool { session != nil }
+    /// True once this phone had to sign in as a new anonymous user (first start, or the old
+    /// sign-in was lost). Only then does an empty group_data() mean "rejoin", not "removed".
+    private(set) var isNewUser = false
 
     func signOut() { store(nil) }
 
@@ -86,15 +92,39 @@ actor Remote {
         return data
     }
 
-    /// While there is only one group, no code is needed (migration 0003).
-    func join(name: String, goal: String, platform: String = "ios") async throws {
-        _ = try await rpc("join_group", ["p_code": NSNull(), "p_name": name, "p_goal": goal, "p_platform": platform])
+    /// Joins the group with this code; returns my participant id. `takeover` reuses a participant
+    /// that already has this name (same person, new phone or lost sign-in).
+    func join(code: String, name: String, goal: String, takeover: Bool = false, platform: String = "ios") async throws -> String {
+        let data = try await rpc("join_group", ["p_code": code, "p_name": name, "p_goal": goal,
+                                                "p_platform": platform, "p_takeover": takeover])
+        return try JSONDecoder().decode(String.self, from: data)
     }
 
-    /// Raw group data, or nil if this phone hasn't joined (or its anonymous user is gone).
+    /// Starts a new group with me as its first member and owner; returns my participant id.
+    func createGroup(groupName: String, name: String, goal: String, platform: String = "ios") async throws -> String {
+        let data = try await rpc("create_group", ["p_group_name": groupName, "p_name": name, "p_goal": goal,
+                                                  "p_platform": platform, "p_timezone": TimeZone.current.identifier])
+        return try JSONDecoder().decode(String.self, from: data)
+    }
+
+    /// Name and size of the group with this code, or nil if there's none.
+    func groupInfo(code: String) async throws -> GroupInfo? {
+        let data = try await rpc("group_info", ["p_code": code])
+        if data.isEmpty || String(data: data, encoding: .utf8) == "null" { return nil }
+        return try JSONDecoder().decode(GroupInfo.self, from: data)
+    }
+
+    func leaveGroup() async throws {
+        _ = try await rpc("leave_group")
+    }
+
+    func removeMember(_ id: String) async throws {
+        _ = try await rpc("remove_member", ["p_member": id])
+    }
+
+    /// Raw group data, or nil if this sign-in isn't in a group.
     func groupData() async throws -> GroupData? {
-        guard session != nil else { return nil }
-        let data = try await rpc("group_data")
+        let data = try await rpc("group_data") // signs in anew if the session is gone (isNewUser)
         if data.isEmpty || String(data: data, encoding: .utf8) == "null" { return nil }
         return try JSONDecoder().decode(GroupData.self, from: data)
     }
@@ -110,9 +140,17 @@ actor Remote {
 
 // MARK: - group_data() payload
 
+struct GroupInfo: Decodable {
+    let name: String
+    let code: String
+    let members: Int
+}
+
 struct GroupData: Decodable {
     struct Group: Decodable {
         let name: String
+        let code: String?        // nil before migration 0005
+        let owner: String?
         let challenge_start: String
         let challenge_nights: Int
     }

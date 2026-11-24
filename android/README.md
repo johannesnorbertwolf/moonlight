@@ -17,7 +17,7 @@ Build setup: Android Gradle plugin 9.4.1 (with its built-in Kotlin), Gradle 9.9.
 
 ## On the phone
 
-1. Open **Moonlight test**, enter the participant name and goal time, tap **Save**.
+1. Join the group in the web app on the phone and tap **Connect the measuring app**. That opens Moonlight test through `moonlight://connect?p=<participant id>&goal=…&name=…`, which stores the participant id (measurements are uploaded under it, migration 0005) and the goal time.
 2. **Open usage access settings** → find *Moonlight test* → allow.
 3. **Open battery optimization settings** → set *Moonlight test* to not optimized / unrestricted. On Samsung also check *Settings → Battery → Background usage limits* and keep the app out of "sleeping apps".
 4. Tap **Measure last night now and upload** once to check the connection. The status line shows the result or the error.

@@ -16,11 +16,17 @@ import android.widget.Toast
 import java.time.LocalTime
 import java.time.format.DateTimeParseException
 
-/** Test-only screen: name, goal time, permissions, and a "measure now" button. */
+/**
+ * Simple screen: who this phone is connected as, goal time, permissions, and a "measure now"
+ * button. The connection comes from the web app's "Connect the measuring app" link
+ * (moonlight://connect?p=<participant id>&goal=HH:mm&name=…).
+ */
 class MainActivity : Activity() {
 
     private lateinit var prefs: Prefs
     private lateinit var accessStatus: TextView
+    private lateinit var connection: TextView
+    private lateinit var goal: EditText
     private lateinit var status: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -35,12 +41,11 @@ class MainActivity : Activity() {
         fun add(v: android.view.View) = column.addView(v, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = pad / 2 })
         fun label(text: String) = TextView(this).apply { this.text = text }
 
-        add(TextView(this).apply { text = "Moonlight measurement test"; textSize = 22f })
-        add(label("Your participant name (exactly as agreed in the group):"))
-        val name = EditText(this).apply { setText(prefs.participant); inputType = InputType.TYPE_CLASS_TEXT }
-        add(name)
+        add(TextView(this).apply { text = "Moonlight measuring"; textSize = 22f })
+        connection = label("")
+        add(connection)
         add(label("Your goal start time (HH:mm). The window always ends at 07:00:"))
-        val goal = EditText(this).apply { setText(prefs.goalStart.toString()); inputType = InputType.TYPE_CLASS_DATETIME }
+        goal = EditText(this).apply { setText(prefs.goalStart.toString()); inputType = InputType.TYPE_CLASS_DATETIME }
         add(goal)
         add(Button(this).apply {
             text = "Save"
@@ -51,12 +56,7 @@ class MainActivity : Activity() {
                     goal.error = "Use HH:mm, for example 21:00"
                     return@setOnClickListener
                 }
-                if (name.text.isBlank()) {
-                    name.error = "Enter your name"
-                    return@setOnClickListener
-                }
-                prefs.participant = name.text.toString()
-                NightlyWorker.schedule(this@MainActivity)
+                if (prefs.participant.isNotBlank()) NightlyWorker.schedule(this@MainActivity)
                 Toast.makeText(this@MainActivity, "Saved. Measures every morning at about 07:05.", Toast.LENGTH_LONG).show()
             }
         })
@@ -81,10 +81,47 @@ class MainActivity : Activity() {
         add(status)
 
         setContentView(ScrollView(this).apply { addView(column) })
+        handleConnect(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleConnect(intent)
+    }
+
+    /** moonlight://connect?p=<participant id>&goal=HH:mm&name=… from the web app. */
+    private fun handleConnect(intent: Intent?) {
+        val uri = intent?.data ?: return
+        if (uri.scheme != "moonlight" || uri.host != "connect") return
+        val id = uri.getQueryParameter("p")?.trim().orEmpty()
+        if (id.isEmpty()) return
+        prefs.participant = id
+        prefs.displayName = uri.getQueryParameter("name").orEmpty()
+        uri.getQueryParameter("goal")?.let { g ->
+            try {
+                prefs.goalStart = LocalTime.parse(g)
+                goal.setText(prefs.goalStart.toString())
+            } catch (_: DateTimeParseException) {
+            }
+        }
+        // New group or person: start over with uploads, so last night is sent under the new id.
+        prefs.uploadedUntil = 0L
+        NightlyWorker.schedule(this)
+        showConnection()
+        Toast.makeText(this, "Connected. Measures every morning at about 07:05.", Toast.LENGTH_LONG).show()
+    }
+
+    private fun showConnection() {
+        connection.text = if (prefs.participant.isBlank()) {
+            "Not connected yet. Open Moonlight in your browser on this phone, join your group, and tap \"Connect the measuring app\"."
+        } else {
+            "Connected as ${prefs.displayName.ifBlank { "you" }} ✓"
+        }
     }
 
     override fun onResume() {
         super.onResume()
+        showConnection()
         accessStatus.text = if (UsageReader.hasUsageAccess(this)) {
             "Usage access: on ✓"
         } else {
@@ -95,7 +132,7 @@ class MainActivity : Activity() {
 
     private fun measureNow() {
         if (prefs.participant.isBlank()) {
-            Toast.makeText(this, "Save your name first", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Connect the app first (from Moonlight in your browser)", Toast.LENGTH_LONG).show()
             return
         }
         if (!UsageReader.hasUsageAccess(this)) {

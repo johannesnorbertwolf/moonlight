@@ -42,6 +42,8 @@ struct Reaction { let target: String; let night: String; let from: String; let e
 struct GroupModel {
     let live: Bool
     let name: String
+    var code: String? = nil
+    var ownerId: String? = nil
     let start: Date
     let last: Date?              // most recent finished night, nil before the first one
     let nightsTotal: Int
@@ -50,6 +52,7 @@ struct GroupModel {
     let meId: String
 
     var me: Member { members.first { $0.isMe }! }
+    var iAmOwner: Bool { ownerId != nil && ownerId == meId }
 }
 
 let reactionEmoji = ["🌙", "👏", "🔥", "😴", "❤️", "🛌", "🦉", "🦥", "🥱"]
@@ -208,7 +211,7 @@ extension GroupModel {
             }
             return Member(id: p.id, name: p.name, goal: p.goal, platform: p.platform, isMe: p.id == d.me, nights: nights)
         }
-        return GroupModel(live: true, name: d.group.name, start: start, last: last, nightsTotal: d.group.challenge_nights,
+        return GroupModel(live: true, name: d.group.name, code: d.group.code, ownerId: d.group.owner, start: start, last: last, nightsTotal: d.group.challenge_nights,
                           members: members, reactions: d.reactions.map { .init(target: $0.target, night: $0.night, from: $0.from, emoji: $0.emoji) },
                           meId: d.me)
     }

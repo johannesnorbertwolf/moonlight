@@ -1,0 +1,12 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["8XRKL83C4V.nl.moonlight.app"],
+        "components": [
+          { "/": "/moonlight/", "?": { "join": "?*" }, "comment": "Invite links: open the group in the iPhone app" }
+        ]
+      }
+    ]
+  }
+}

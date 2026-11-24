@@ -175,3 +175,13 @@ nav.tabs a[aria-current="page"] { color: var(--moon); }
   border-radius: 999px;
   font-size: 14px;
 }
+
+/* invite */
+.qr { background: #fff; border-radius: var(--radius); padding: 12px; width: 240px; max-width: 70vw; aspect-ratio: 1; margin: 8px auto 0; }
+.qr svg { display: block; width: 100%; height: 100%; }
+.code { font: 600 36px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 2px; }
+.code-small { font: 600 16px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text-2); }
+.danger { color: var(--warn); }
+a.btn { text-decoration: none; text-align: center; box-sizing: border-box; }
+.btn-primary:disabled { opacity: 0.5; }
+a.link { text-decoration: none; }

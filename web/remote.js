@@ -1,4 +1,4 @@
-// Live data from Supabase: anonymous sign-in, joining the group, loading the board, reactions.
+// Live data from Supabase: anonymous sign-in, starting and joining groups, the board, reactions.
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm";
 import { SUPABASE_URL, SUPABASE_KEY } from "./config.js";
 import { isoDate, addDays, lastNightDate, bucketFor } from "./data.js";
@@ -17,17 +17,56 @@ async function ensureSession() {
 }
 
 export class UnknownCodeError extends Error {}
+export class NameTakenError extends Error {}
 
-// While there is only one group, joining needs no code (migration 0003).
-export async function join(name, goal, platform) {
+function rpcError(error) {
+  if (/unknown group code/.test(error.message)) return new UnknownCodeError(error.message);
+  if (/name taken/.test(error.message)) return new NameTakenError(error.message);
+  return error;
+}
+
+export async function hasSession() {
+  const { data } = await supabase.auth.getSession();
+  return !!data.session;
+}
+
+/** Joins the group with this code; returns my participant id. `takeover` reuses a participant with this name. */
+export async function join(code, name, goal, platform, takeover = false) {
   await ensureSession();
-  const { error } = await supabase.rpc("join_group", {
-    p_code: null, p_name: name, p_goal: goal, p_platform: platform,
+  const { data, error } = await supabase.rpc("join_group", {
+    p_code: code, p_name: name, p_goal: goal, p_platform: platform, p_takeover: takeover,
   });
-  if (error) {
-    if (/unknown group code/.test(error.message)) throw new UnknownCodeError(error.message);
-    throw error;
-  }
+  if (error) throw rpcError(error);
+  return data;
+}
+
+/** Starts a new group with me as owner; returns my participant id. */
+export async function createGroup(groupName, name, goal, platform) {
+  await ensureSession();
+  const { data, error } = await supabase.rpc("create_group", {
+    p_group_name: groupName, p_name: name, p_goal: goal, p_platform: platform,
+    p_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/Amsterdam",
+  });
+  if (error) throw rpcError(error);
+  return data;
+}
+
+/** {name, code, members} for a code, or null. Works without signing in. */
+export async function groupInfo(code) {
+  const { data, error } = await supabase.rpc("group_info", { p_code: code });
+  if (error) throw error;
+  return data;
+}
+
+export async function leaveGroup() {
+  const { error } = await supabase.rpc("leave_group");
+  if (error) throw error;
+  await supabase.auth.signOut();
+}
+
+export async function removeMember(id) {
+  const { error } = await supabase.rpc("remove_member", { p_member: id });
+  if (error) throw error;
 }
 
 export async function setReaction(targetId, night, emoji) {
@@ -100,6 +139,9 @@ export async function loadGroup(now = new Date()) {
   return {
     live: true,
     name: data.group.name,
+    code: data.group.code || null,
+    ownerId: data.group.owner || null,
+    iAmOwner: !!data.group.owner && data.group.owner === data.me,
     start,
     last,
     nightsTotal: data.group.challenge_nights,

@@ -7,10 +7,11 @@ Until Moonlight is on TestFlight, the organizer installs the app on your iPhone 
 Then open **Moonlight**:
 
 1. **Get started.** Choose English or Nederlands.
-2. Enter your **name**, exactly as agreed, and your **goal time** (e.g. 21:00). Tap **Continue**.
-3. **Allow Screen Time access.** Confirm with Face ID or your passcode. Moonlight only learns whether you passed 2, 5, 15 or 60 minutes during your night, never which apps or what you did.
-4. **Choose what counts.** Tap every category in the list (so the circle is ticked for each), then **Done**. Picking a category also covers apps you install later.
-5. **Allow notifications** for the morning reminder at 09:00.
+2. **Your group:** if you tapped an invite link, the code is already filled in; otherwise type the 6-character code. Tap **Join this group**. (Or start a new group and invite the others from the Group tab.)
+3. Enter your **name** and your **goal time** (e.g. 21:00). Tap **Continue**.
+4. **Allow Screen Time access.** Confirm with Face ID or your passcode. Moonlight only learns whether you passed 2, 5, 15 or 60 minutes during your night, never which apps or what you did.
+5. **Choose what counts.** Tap every category in the list (so the circle is ticked for each), then **Done**. Picking a category also covers apps you install later.
+6. **Allow notifications** for the morning reminder at 09:00.
 
 That's it. Measuring starts at your goal time tonight. Open Moonlight in the morning to see how your group did.
 

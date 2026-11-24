@@ -30,6 +30,14 @@ targets:
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
         GENERATE_INFOPLIST_FILE: YES
+    info:
+      path: Moonlight/Info.plist
+      properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleURLTypes:
+          - CFBundleURLName: nl.moonlight.app.invite
+            CFBundleURLSchemes: [moonlight]
     dependencies:
       - target: MoonlightMonitor
   MoonlightMonitor:

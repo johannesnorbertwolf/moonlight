@@ -18,9 +18,9 @@ The app measures whether you used your phone during your night window. Every mor
 
 - **Platforms:** iPhone and Android. **Devices measured:** the phone only.
 - **Group size:** at least 2, no upper limit. The first trial runs with **4 people** (2 iPhones, 2 Android phones).
-- **One group for now.** The data model supports several groups, but the app assumes everyone is in one.
+- **Any number of groups, one per person.** Anyone can start a group in the app; the challenge starts that night. Others join with the invite link, a QR code, or the 6-character code. Joining another group leaves the old one.
 - **Language:** English and Dutch.
-- **No accounts.** You type your name once (see §8). During the trial there is one group and no group code.
+- **No accounts.** You type your name once (see §8).
 - **Apple developer account (paid, since 2026-11-23).** This made a native iPhone app with Screen Time possible (see §4). Before that, iPhones measured with Shortcuts automations; that route still works for anyone without the app.
 
 ### Architecture
@@ -123,7 +123,7 @@ Written by the app, identical for every group, so the evaluation stays fair. Exa
 
 ## 7. Screens (web app)
 
-1. **Onboarding:** name (plus a group code once there are several groups), explanation, goal time, notifications. Then platform setup: on iPhone, a guided walkthrough for the two Shortcuts automations and "Add to Home Screen"; on Android, usage access and battery exemption.
+1. **Onboarding:** group (join with link or code, or start one), name, goal time, notifications. Then platform setup: on iPhone, a guided walkthrough for the two Shortcuts automations and "Add to Home Screen"; on Android, usage access and battery exemption.
 2. **Home, evening:** tonight's window ("starts at 21:00"), wind-down tip, current streak.
 3. **Morning recap:** your night (ring showing the phone-free share, timeline with the time the night broke), then a link to the group board.
 4. **Group board:** see §6.
@@ -146,14 +146,15 @@ Visual style: a dark night-sky purple background, warm moon yellow for success, 
 | `group_summaries` | `group_id`, `night_date`, `sent_at` | Prevents sending a second notification |
 
 ### Identity without accounts
-- No passwords. You type your **name** once. While there is only one group there is no group code (migration 0003); with several groups the code comes back.
+- No passwords. You join a group with its link or code and type your **name** once. Names are unique within a group; someone joining with a taken name is asked to pick another, or confirm it's them on a new phone (that takes over the participant, so history stays).
+- Measurements are stored under the participant's id, not the name (migration 0005). Groups from before that migration also match by name.
 - iPhone: the Shortcut sends a personal token (shown during onboarding) with each event. The web app remembers you in the browser.
 - Android: the app stores the token.
 - Downside: switching phones or clearing the browser means re-entering the token. For the trial, the admin can look it up.
 
 ### Joining and leaving
-- You can only join **before** the challenge starts.
-- Leaving is not a separate feature: if someone stops, their nights stay unreported.
+- You can join at any time; nights before you joined show as not reported.
+- **Leave group** deletes your participant, nights and reactions. The group's owner (whoever started it) can remove members the same way.
 
 ## 9. Privacy and research ethics
 

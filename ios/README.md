@@ -42,7 +42,8 @@ Debug builds launched with the argument `-demo` show a made-up group (Scheme →
 | `Shared/Shared.swift` | Night window, App Group store, upload; used by app and extension |
 | `MonitorExtension/NightMonitor.swift` | The DeviceActivity monitor: window start/end, thresholds |
 | `Moonlight/ScreenTime.swift` | Permission, app picker selection, the nightly schedule |
-| `Moonlight/Remote.swift` | Supabase: anonymous sign-in, join, group data, reactions, goal |
+| `Moonlight/Remote.swift` | Supabase: anonymous sign-in, start/join/leave group, group data, reactions, goal |
+| `Moonlight/Invite.swift` | Invite links (`moonlight://join/CODE`, `…/moonlight/?join=CODE`), QR code, invite sheet |
 | `Moonlight/Model.swift` | Buckets, nights per member (port of `web/estimate.js` and `web/data.js`), streaks |
 | `Moonlight/AppModel.swift` | App state, rejoin, reactions, the 09:00 local reminder |
 | `Moonlight/OnboardingView.swift` | Welcome → name and goal → Screen Time → what counts → notifications |
@@ -50,6 +51,12 @@ Debug builds launched with the argument `-demo` show a made-up group (Scheme →
 | `Moonlight/SettingsView.swift` | Goal time, Screen Time status, language, diagnostics |
 | `Moonlight/Strings.swift` | English and Dutch strings (same keys as `web/i18n.js`) |
 | `Moonlight/DemoGroup.swift` | Made-up group for `-demo` (debug only) |
+
+## Groups and invite links
+
+Onboarding starts with the group: join with a code (filled in by an invite link) or start a new group. The owner shares the invite from the Group tab (link, QR, code) and can remove members in Settings → Members; anyone can leave there (deletes their data). The extension reports under the participant id (migration 0005).
+
+Invite links are `https://johannesnorbertwolf.github.io/moonlight/?join=CODE`. Without the app they open the web app. To make iOS open the app directly (universal link), the file in `../site-root/.well-known/apple-app-site-association` must be served at `https://johannesnorbertwolf.github.io/.well-known/apple-app-site-association`, i.e. from a repository named `johannesnorbertwolf.github.io` (see `../site-root/README.md`). The app already has the matching Associated Domains entitlement. Until then, the web page offers "Open in the Moonlight iPhone app" (`moonlight://join/CODE`).
 
 ## Not yet
 
