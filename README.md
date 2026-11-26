@@ -11,6 +11,6 @@ An app for a sleep intervention: it checks whether you used your phone during yo
 | `supabase/` | Database migrations |
 | `ios/` | Native iPhone app (SwiftUI, Screen Time API) |
 | `ios-shortcuts/` | Older iPhone route: Shortcuts automations, no app needed |
-| `android/` | Kotlin measuring app for Android |
+| `android/` | Native Android app (Kotlin, Compose): measuring, group board, reactions; joins the trial group by itself |
 | `analysis/` | Script that turns raw events into nights |
 | `web/` | Web app for the group board (live on GitHub Pages) |

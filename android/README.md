@@ -1,6 +1,6 @@
-# Moonlight measurement test: Android app
+# Moonlight Android app
 
-A bare-bones app for the measurement test (see `../docs/measurement-test.md`). It reads the phone's usage data for last night's window, turns it into "phone in use" sessions, and uploads them to Supabase as `open`/`close` events (the same format the iPhone Shortcuts send), plus its own precise minutes for comparison.
+The complete Moonlight app for Android, native (Kotlin, Jetpack Compose): setup, Today, your night, the group board with reactions, history and settings. It measures the night with Android's usage data and uploads it to Supabase. No browser and no group choice: every Android user joins the trial group with the code in `Remote.kt` (`GROUP_CODE = "675D89"`), because this app is only sideloaded for the trial and needs no store rules. Participant steps: [SETUP.md](SETUP.md).
 
 Requires Android 10 or newer.
 
@@ -15,13 +15,6 @@ Build setup: Android Gradle plugin 9.4.1 (with its built-in Kotlin), Gradle 9.9.
    - **Cable:** turn on Developer options and USB debugging on the phone, connect it, press **Run**.
    - **File:** **Build → Build App Bundle(s) / APK(s) → Build APK(s)**, send `app/build/outputs/apk/release/app-release.apk` (or the debug APK) to the participant, and have them open it and allow "install unknown apps" for the app they opened it from.
 
-## On the phone
-
-1. Join the group in the web app on the phone and tap **Connect the measuring app**. That opens Moonlight test through `moonlight://connect?p=<participant id>&goal=…&name=…`, which stores the participant id (measurements are uploaded under it, migration 0005) and the goal time.
-2. **Open usage access settings** → find *Moonlight test* → allow.
-3. **Open battery optimization settings** → set *Moonlight test* to not optimized / unrestricted. On Samsung also check *Settings → Battery → Background usage limits* and keep the app out of "sleeping apps".
-4. Tap **Measure last night now and upload** once to check the connection. The status line shows the result or the error.
-
 From the command line instead of Android Studio:
 
 ```bash
@@ -29,17 +22,27 @@ cd android
 JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradlew assembleDebug
 ```
 
-## After installing
+The APK to share is copied to `Moonlight test.apk` (gitignored). It's signed with this Mac's debug key, so newer builds install over older ones and keep the setup.
 
-After that it runs on its own every morning at about 07:05 and re-uploads the last two nights (duplicates are ignored).
+## How it runs
+
+Every morning at about 07:05, and whenever the app opens, it measures the last two nights and uploads them under the participant id (duplicates are ignored), then loads the group board. If the anonymous sign-in is lost, it rejoins with the saved name, which takes over the same participant.
 
 ## Files
 
 | File | What it does |
 |---|---|
-| `NightWindow.kt` | Works out a night's window (goal start → 07:00) and the night date (date it starts) |
-| `UsageReader.kt` | Reads `UsageEvents`, ignores launcher and system UI, merges app switches into sessions, computes precise minutes and when the 2-minute margin was crossed |
-| `Uploader.kt` | Posts events and the night summary to Supabase's REST API |
-| `NightlyWorker.kt` | Daily `WorkManager` job, plus the shared measure-and-upload routine |
-| `MainActivity.kt` | Test screen: name, goal time, permission buttons, "measure now" |
-| `Prefs.kt` | Stores name, goal time and the last status line |
+| `MainActivity.kt` | Setup on first start, then the four tabs |
+| `OnboardingScreen.kt` | Language → name and goal (joins the group) → usage access → battery → notifications |
+| `Screens.kt` | Today, your night, group board (tap = 🌙, hold = all nine), history, settings |
+| `Theme.kt` | Colors, moon icons per bucket, cards and buttons (same look as the iPhone app) |
+| `AppState.kt` | App state and actions: join, load, react, goal, leave; text helper `t()` |
+| `Remote.kt` | Supabase: anonymous sign-in, join_group, group_data, set_reaction, update_goal, leave_group; `GROUP_CODE` |
+| `GroupModel.kt` | Buckets, nights per member, streaks (port of the iPhone `Model.swift`) |
+| `Strings.kt` | English and Dutch strings, generated from `ios/Moonlight/Strings.swift` plus Android-only keys |
+| `NightWindow.kt` | A night's window (goal start → 07:00) and the night date (date it starts) |
+| `UsageReader.kt` | Reads `UsageEvents`, ignores launcher and system UI, merges app switches into sessions |
+| `Uploader.kt` | Posts events and the night summary to Supabase under the participant id |
+| `NightlyWorker.kt` | Daily 07:05 `WorkManager` job, plus the shared measure-and-upload routine |
+| `MorningReminder.kt` | Daily 09:00 notification |
+| `Prefs.kt` | Name, goal, participant id, session, last status |

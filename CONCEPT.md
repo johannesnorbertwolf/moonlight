@@ -27,9 +27,9 @@ The app measures whether you used your phone during your night window. Every mor
 
 | Part | iPhone | Android |
 |---|---|---|
-| Measuring | **Native SwiftUI app** with Apple's Screen Time API: reports "at least 2 / 5 / 15 / 60 minutes" per night (older route: two Shortcuts automations) | Small **native Kotlin app** reads the phone's usage data and uploads open/close events |
-| Screens (board, history, reactions) | **In the iPhone app** (same screens as the web app) | The **web app**, added to the home screen |
-| Morning notification | Local reminder at 09:00 for now; push via APNs later | Firebase Cloud Messaging (Google's free push service) through the Android app |
+| Measuring | **Native SwiftUI app** with Apple's Screen Time API: reports "at least 2 / 5 / 15 / 60 minutes" per night (older route: two Shortcuts automations) | **Native Kotlin app** reads the phone's usage data and uploads open/close events |
+| Screens (board, history, reactions) | **In the iPhone app** (same screens as the web app) | **In the Android app** (same screens; no browser) |
+| Morning notification | Local reminder at 09:00 for now; push via APNs later | Local reminder at 09:00 for now; push via Firebase later |
 | Backend | **Supabase** (Postgres database plus server functions) | same |
 
 The iPhone app and the web app show the same screens with the same rules (the Swift code ports `web/estimate.js` and `web/data.js`).
@@ -123,7 +123,7 @@ Written by the app, identical for every group, so the evaluation stays fair. Exa
 
 ## 7. Screens (web app)
 
-1. **Onboarding:** group (join with link or code, or start one), name, goal time, notifications. Then platform setup: on iPhone, a guided walkthrough for the two Shortcuts automations and "Add to Home Screen"; on Android, usage access and battery exemption.
+1. **Onboarding:** group (join with link or code, or start one), name, goal time, notifications. Then platform setup: on iPhone, Screen Time permission and what counts; on Android (native app, joins the trial group `675D89` by itself, no group step), usage access and battery exemption.
 2. **Home, evening:** tonight's window ("starts at 21:00"), wind-down tip, current streak.
 3. **Morning recap:** your night (ring showing the phone-free share, timeline with the time the night broke), then a link to the group board.
 4. **Group board:** see §6.
@@ -182,7 +182,7 @@ moonlight/
   supabase/           database migrations
   ios/                native iPhone app (SwiftUI, Screen Time)
   ios-shortcuts/      older iPhone route: Shortcuts automations
-  android/            Kotlin measuring app
+  android/            Native Android app (measuring + all screens)
   analysis/           scripts that turn raw events into nights
   web/                the web app (prototype with made-up data so far)
   docs/               test plans and notes
