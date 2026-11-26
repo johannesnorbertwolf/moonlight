@@ -107,6 +107,7 @@ final class SharedStore {
     /// Short log of what the extension did, shown in Settings → Diagnostics.
     func log(_ line: String) {
         let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
         f.dateFormat = "dd-MM HH:mm:ss"
         var lines = defaults.stringArray(forKey: "log") ?? []
         lines.append("\(f.string(from: Date())) \(line)")

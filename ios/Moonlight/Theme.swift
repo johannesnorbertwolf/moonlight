@@ -103,7 +103,10 @@ enum Fmt {
         return f.string(from: d)
     }
     static func time(_ d: Date) -> String {
+        // Always 24-hour "21:00": without a fixed locale, iPhones set to a 12-hour clock turn
+        // "HH:mm" into "9:00 p.m.", which the server can't read.
         let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
         f.dateFormat = "HH:mm"
         return f.string(from: d)
     }
